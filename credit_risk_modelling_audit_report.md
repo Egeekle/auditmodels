@@ -2,27 +2,31 @@
 
 **Puntuación General:** 85.7 / 100  
 **Nivel de Riesgo AuditModels:** `LOW`  
-**Fecha:** 2026-07-21 15:28:49  
+**Fecha:** 2026-07-21 16:51:58  
 
 ---
 
 ## 📝 Alcance y Metodología
-- **Alcance:** Auditoría técnica integral de seguridad, cumplimiento, calidad de datos, equidad algorítmica y robustez para el modelo *Credit Risk Modelling (PD Scorecard)*.
-- **Metodología:** Análisis y cuantificación cuantitativa a través de 10 dimensiones independientes mapeadas a estándares ISO 42001, NIST AI RMF y EU AI Act.
+- **Alcance:** Auditoría técnica integral de seguridad, cumplimiento, calidad de datos, equidad algorítmica, explicabilidad y deriva en producción para el modelo *Credit Risk Modelling (PD Scorecard)*.
+- **Metodología:** Análisis cuantitativo estructurado evaluando las 11 fases de `src/auditmodels/` mapeadas a ISO 42001, NIST AI RMF y EU AI Act.
 
 ---
 
-## 📊 Resumen de Evaluaciones
+## 📊 Resumen por Fases de Auditoría (`src/auditmodels`)
 
-| Dimensión Auditada | Puntuación | Nivel de Riesgo |
+| Fases Auditadas | Puntuación | Nivel de Riesgo |
 | :--- | :---: | :---: |
-| **Calidad de Datos** | 83.1 / 100 | `LOW` |
-| **Rendimiento Predictivo** | 52.1 / 100 | `HIGH` |
-| **Equidad y Sesgos (Fairness)** | 60.0 / 100 | `MEDIUM` |
-| **Robustez y Perturbaciones** | 99.6 / 100 | `LOW` |
-| **Gobernanza y Cumplimiento** | 85.7 / 100 | `LOW` |
-| **Seguridad** | 100.0 / 100 | `LOW` |
-| **Privacidad** | 80.0 / 100 | `LOW` |
+| **1. Calidad de Datos** (`data_audit`) | 83.1 / 100 | `LOW` |
+| **2. Rendimiento Predictivo** (`performance_audit`) | 52.1 / 100 | `HIGH` |
+| **3. Equidad y Sesgos** (`fairness_audit`) | 60.0 / 100 | `MEDIUM` |
+| **4. Robustez y Estrés** (`robustness_audit`) | 99.6 / 100 | `LOW` |
+| **5. Explicabilidad** (`explainability_audit`) | 80.0 / 100 | `LOW` |
+| **6. Seguridad** (`security_audit`) | 100.0 / 100 | `LOW` |
+| **7. Privacidad** (`privacy_audit`) | 80.0 / 100 | `LOW` |
+| **8. Cumplimiento y Gobernanza** (`compliance_audit`) | 85.7 / 100 | `LOW` |
+| **9. Documentación** (`documentation_audit`) | 100.0 / 100 | `LOW` |
+| **10. Entrenamiento** (`training_audit`) | 100.0 / 100 | `LOW` |
+| **11. Producción y Deriva** (`production_audit`) | 100.0 / 100 | `LOW` |
 
 ---
 
@@ -38,6 +42,11 @@
 - ⚠️ Alta dominancia de una sola característica 'annual_inc' (98.4% de importancia). Riesgo de sesgo por característica única.
 - ⚠️ Non-compliant item [MON-01] (ISO/IEC 42001): Is continuous monitoring established for data drift and concept drift in production?
 - ⚠️ Protección de Datos: Columnas con PII potencial expuestas en texto plano: ['ssn']
+
+---
+
+## 💡 Explicabilidad (Top Variables Predictivas)
+- **Variables principales:** annual_inc, delinq_2yrs, revol_util, credit_score, dti
 
 ---
 

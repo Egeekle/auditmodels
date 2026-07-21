@@ -2,32 +2,41 @@
 
 **Puntuación General:** 95.8 / 100  
 **Nivel de Riesgo AuditModels:** `LOW`  
-**Fecha:** 2026-07-21 15:28:54  
+**Fecha:** 2026-07-21 16:52:04  
 
 ---
 
 ## 📝 Alcance y Metodología
-- **Alcance:** Auditoría técnica integral de seguridad, cumplimiento, calidad de datos, equidad algorítmica y robustez para el modelo *Loan Interest Rate Predictor*.
-- **Metodología:** Análisis y cuantificación cuantitativa a través de 10 dimensiones independientes mapeadas a estándares ISO 42001, NIST AI RMF y EU AI Act.
+- **Alcance:** Auditoría técnica integral de seguridad, cumplimiento, calidad de datos, equidad algorítmica, explicabilidad y deriva en producción para el modelo *Loan Interest Rate Predictor*.
+- **Metodología:** Análisis cuantitativo estructurado evaluando las 11 fases de `src/auditmodels/` mapeadas a ISO 42001, NIST AI RMF y EU AI Act.
 
 ---
 
-## 📊 Resumen de Evaluaciones
+## 📊 Resumen por Fases de Auditoría (`src/auditmodels`)
 
-| Dimensión Auditada | Puntuación | Nivel de Riesgo |
+| Fases Auditadas | Puntuación | Nivel de Riesgo |
 | :--- | :---: | :---: |
-| **Calidad de Datos** | 100.0 / 100 | `LOW` |
-| **Rendimiento Predictivo** | 66.4 / 100 | `MEDIUM` |
-| **Equidad y Sesgos (Fairness)** | 100.0 / 100 | `LOW` |
-| **Robustez y Perturbaciones** | 78.2 / 100 | `MEDIUM` |
-| **Gobernanza y Cumplimiento** | 100.0 / 100 | `LOW` |
-| **Seguridad** | 100.0 / 100 | `LOW` |
-| **Privacidad** | 100.0 / 100 | `LOW` |
+| **1. Calidad de Datos** (`data_audit`) | 100.0 / 100 | `LOW` |
+| **2. Rendimiento Predictivo** (`performance_audit`) | 66.4 / 100 | `MEDIUM` |
+| **3. Equidad y Sesgos** (`fairness_audit`) | 100.0 / 100 | `LOW` |
+| **4. Robustez y Estrés** (`robustness_audit`) | 78.2 / 100 | `MEDIUM` |
+| **5. Explicabilidad** (`explainability_audit`) | 80.0 / 100 | `LOW` |
+| **6. Seguridad** (`security_audit`) | 100.0 / 100 | `LOW` |
+| **7. Privacidad** (`privacy_audit`) | 100.0 / 100 | `LOW` |
+| **8. Cumplimiento y Gobernanza** (`compliance_audit`) | 100.0 / 100 | `LOW` |
+| **9. Documentación** (`documentation_audit`) | 100.0 / 100 | `LOW` |
+| **10. Entrenamiento** (`training_audit`) | 100.0 / 100 | `LOW` |
+| **11. Producción y Deriva** (`production_audit`) | 100.0 / 100 | `LOW` |
 
 ---
 
 ## ⚠️ Evidencias y Riesgos Identificados (Alertas)
 - ⚠️ Alta dominancia de una sola característica 'credit_score' (99.5% de importancia). Riesgo de sesgo por característica única.
+
+---
+
+## 💡 Explicabilidad (Top Variables Predictivas)
+- **Variables principales:** credit_score, loan_amount, income
 
 ---
 
