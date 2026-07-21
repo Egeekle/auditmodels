@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe de Auditoría de IA - Loan Interest Rate Predictor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --border-card: rgba(255, 255, 255, 0.1);
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.25);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+        body {
+            background: radial-gradient(circle at top right, #1e1b4b, #0f172a 60%);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--bg-card); backdrop-filter: blur(12px);
+            border: 1px solid var(--border-card); padding: 1.5rem 2rem;
+            border-radius: 16px; margin-bottom: 2rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .brand h1 { font-size: 1.8rem; background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .brand p { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+        .overall-badge {
+            background: #10b981; color: #fff; padding: 0.6rem 1.4rem;
+            border-radius: 30px; font-weight: 700; font-size: 1.1rem;
+            box-shadow: 0 0 15px #10b981;
+        }
+        .grid-dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .card {
+            background: var(--bg-card); backdrop-filter: blur(12px);
+            border: 1px solid var(--border-card); border-radius: 16px;
+            padding: 1.5rem; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        }
+        .card h2 { font-size: 1.25rem; color: var(--accent); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+        .score-hero { display: flex; align-items: center; justify-content: space-around; height: 260px; }
+        .circle-score {
+            width: 140px; height: 140px; border-radius: 50%;
+            background: conic-gradient(var(--accent) 344.88deg, rgba(255,255,255,0.1) 0deg);
+            display: flex; align-items: center; justify-content: center;
+            position: relative; box-shadow: 0 0 20px var(--accent-glow);
+        }
+        .circle-score::before {
+            content: ''; position: absolute; width: 115px; height: 115px;
+            background: #0f172a; border-radius: 50%;
+        }
+        .circle-score span { position: relative; z-index: 2; font-size: 2.2rem; font-weight: 700; }
+        .warnings-list { list-style: none; max-height: 240px; overflow-y: auto; }
+        .warning-item { background: rgba(239, 68, 68, 0.15); border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .no-warnings { color: #10b981; font-weight: 600; font-size: 1rem; padding: 1rem 0; }
+        
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .metric-box { background: rgba(255,255,255,0.03); border: 1px solid var(--border-card); border-radius: 12px; padding: 1rem; text-align: center; }
+        .metric-box .label { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 4px; }
+        .metric-box .value { font-size: 1.4rem; font-weight: 700; color: #fff; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-card); }
+        th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
+        .status-pass { color: #10b981; font-weight: 600; }
+        .status-fail { color: #ef4444; font-weight: 600; }
+        .list-recs { padding-left: 1.25rem; font-size: 0.95rem; line-height: 1.6rem; color: #e2e8f0; }
+
+        footer { text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 3rem; padding-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="brand">
+                <h1>Auditoría de Modelo de IA</h1>
+                <p>Modelo: <strong>Loan Interest Rate Predictor</strong> | Fecha: 2026-07-21 15:28:54</p>
+            </div>
+            <div class="overall-badge">RIESGO: LOW</div>
+        </header>
+
+        <div class="grid-dashboard">
+            <div class="card">
+                <h2>🎯 Puntuación General (95.8/100)</h2>
+                <div class="score-hero">
+                    <div class="circle-score">
+                        <span>95.8</span>
+                    </div>
+                    <div style="width: 240px; height: 240px;">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>⚠️ Alertas y Hallazgos Principales</h2>
+                <ul class="warnings-list">
+                    <li class='warning-item'>⚠️ Alta dominancia de una sola característica 'credit_score' (99.5% de importancia). Riesgo de sesgo por característica única.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2>📝 Alcance y Metodología de la Auditoría</h2>
+            <p style="font-size: 0.95rem; line-height: 1.6; color: #cbd5e1; margin-bottom: 1rem;">
+                <strong>Alcance:</strong> Evaluación integral de seguridad, cumplimiento, calidad de datos, equidad algorítmica y robustez para el modelo <em>Loan Interest Rate Predictor</em>.
+            </p>
+            <p style="font-size: 0.95rem; line-height: 1.6; color: #cbd5e1;">
+                <strong>Metodología:</strong> Análisis y cuantificación estadística a través de 10 dimensiones independientes alineadas a marcos bancarios (Basilea III), el estándar de gestión de IA <strong>ISO/IEC 42001</strong> y el marco de gestión de riesgos de IA del <strong>NIST</strong>.
+            </p>
+        </div>
+
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2>📊 Resumen por Dimensiones de Auditoría</h2>
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div class="label">Calidad de Datos</div>
+                    <div class="value">100.0 / 100</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Rendimiento (ROC-AUC/F1)</div>
+                    <div class="value">66.4 / 100</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Equidad y Sesgos</div>
+                    <div class="value">100.0 / 100</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Robustez</div>
+                    <div class="value">78.2 / 100</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Cumplimiento Normativo</div>
+                    <div class="value">100.0 / 100</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Documentación</div>
+                    <div class="value">100.0 / 100</div>
+                </div>
+                <div class="metric-box">
+                    <div class="label">Proceso de Entrenamiento</div>
+                    <div class="value">100.0 / 100</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2>📋 Recomendaciones y Plan de Remediación (Remediation Plan)</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem;">
+                <div>
+                    <h3 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 0.5rem;">📌 Recomendaciones de Auditoría</h3>
+                    <ul class="list-recs">
+                        <li>📌 Aumentar la robustez del modelo contra ruidos de entrada y anomalías.</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="color: var(--accent); font-size: 1.05rem; margin-bottom: 0.5rem;">🛠️ Plan de Remediación Propuesto</h3>
+                    <ul class="list-recs">
+                        <li>🛠️ Modelado: Implementar entrenamiento adversarial o inyección de ruido sintético en el dataset de entrenamiento.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 2rem;" id="credit-risk-metrics-card">
+            <h2>📈 Métricas de Modelado de Riesgo Crediticio (Credit Risk Metrics)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Métrica de Riesgo</th>
+                        <th>Valor Auditado</th>
+                        <th>Umbral Mínimo Recomendado</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ROC-AUC</td>
+                        <td>N/A</td>
+                        <td>&ge; 0.70</td>
+                        <td><span class="status-fail">FAILED</span></td>
+                    </tr>
+                    <tr>
+                        <td>Gini Coefficient (2*AUC - 1)</td>
+                        <td>N/A</td>
+                        <td>&ge; 0.40 (40%)</td>
+                        <td><span class="status-fail">WARNING</span></td>
+                    </tr>
+                    <tr>
+                        <td>KS Statistic (Kolmogorov-Smirnov)</td>
+                        <td>N/A</td>
+                        <td>&ge; 0.30 (30%)</td>
+                        <td><span class="status-fail">WARNING</span></td>
+                    </tr>
+                    <tr>
+                        <td>F1-Score / Accuracy</td>
+                        <td>N/A / N/A</td>
+                        <td>F1 &ge; 0.60</td>
+                        <td><span class="status-fail">WARNING</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2>⚖️ Análisis de Equidad (Fairness Metrics)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Valor</th>
+                        <th>Umbral Recomendado</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Disparate Impact Ratio</td>
+                        <td>N/A</td>
+                        <td>0.80 - 1.25 (Regla 80%)</td>
+                        <td><span class="status-pass">PASSED</span></td>
+                    </tr>
+                    <tr>
+                        <td>Equal Opportunity Diff</td>
+                        <td>N/A</td>
+                        <td>|Diff| &lt; 0.10</td>
+                        <td><span class="status-pass">PASSED</span></td>
+                    </tr>
+                    <tr>
+                        <td>Demographic Parity Diff</td>
+                        <td>N/A</td>
+                        <td>|Diff| &lt; 0.10</td>
+                        <td><span class="status-pass">MONITORED</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" style="margin-bottom: 2rem;">
+            <h2>📜 Lista de Verificación Regulatoria (ISO 42001 / NIST AI / EU AI Act)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Marco</th>
+                        <th>Requisito Evaluado</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>GOV-01</td><td>ISO/IEC 42001</td><td>Is there a documented AI governance policy and designated responsible roles?</td><td><span class='status-pass'>PASSED</span></td></tr><tr><td>DOC-01</td><td>ISO/IEC 42001</td><td>Are training data sources, model architecture, and version history fully documented?</td><td><span class='status-pass'>PASSED</span></td></tr><tr><td>RISK-01</td><td>NIST AI RMF</td><td>Has a risk management assessment been conducted for high-impact edge cases?</td><td><span class='status-pass'>PASSED</span></td></tr><tr><td>PRIV-01</td><td>EU AI Act</td><td>Are personal data processing policies compliant with local data privacy regulations (e.g. GDPR/LGPD)?</td><td><span class='status-pass'>PASSED</span></td></tr><tr><td>SEC-01</td><td>NIST AI RMF</td><td>Are access control logs and audit trails maintained for model inference and training data?</td><td><span class='status-pass'>PASSED</span></td></tr><tr><td>EXP-01</td><td>EU AI Act</td><td>Can the model output be explained to end-users or affected individuals upon request?</td><td><span class='status-pass'>PASSED</span></td></tr><tr><td>MON-01</td><td>ISO/IEC 42001</td><td>Is continuous monitoring established for data drift and concept drift in production?</td><td><span class='status-pass'>PASSED</span></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            Generado automáticamente por <strong>AuditModels Framework v0.1.0</strong> | 2026-07-21 15:28:54
+        </footer>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ["Datos", "Rendimiento", "Equidad", "Robustez", "Seguridad", "Privacidad", "Gobernanza"],
+                datasets: [{
+                    label: 'Puntuación AuditModels',
+                    data: [100.0, 66.4, 100.0, 78.2, 100.0, 100.0, 100.0],
+                    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+                    borderColor: '#38bdf8',
+                    pointBackgroundColor: '#38bdf8',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        pointLabels: { color: '#94a3b8', font: { size: 10 } },
+                        suggestedMin: 0,
+                        suggestedMax: 100,
+                        ticks: { display: false }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Hide Credit Risk Card if not classification problem
+        if ("regression" !== "classification") {
+            const card = document.getElementById("credit-risk-metrics-card");
+            if (card) card.style.display = "none";
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+[project]
+name = "auditmodels"
+version = "0.1.0"
+description = "AI Model Auditing Framework and Interactive Dashboard"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.2.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+]
+
+[project.scripts]
+auditmodels = "auditmodels.cli:main"
