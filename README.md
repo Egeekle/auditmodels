@@ -26,6 +26,20 @@ El framework estructura el proceso de auditoría cubriendo exhaustivamente los 1
 
 ---
 
+## 📊 Criterios de Categorización de Score y Niveles de Riesgo
+
+`auditmodels` evalúa los modelos asignando un **Score Global (0.0 a 100.0)** ponderado a través de 11 dimensiones técnicas y clasificándolo en 4 Niveles de Riesgo:
+
+- 🟢 **`LOW` (Bajo Riesgo, Score $\ge 80.0$)**: El modelo cumple holgadamente con los estándares de calidad, equidad, gobernanza y seguridad. Apto para producción.
+- 🟡 **`MEDIUM` (Riesgo Moderado, $60.0 \le \text{Score} < 80.0$)**: Presenta alertas o desviaciones menores. Apto con monitoreo y plan de remediación.
+- 🟠 **`HIGH` (Alto Riesgo, $40.0 \le \text{Score} < 60.0$)**: Deficiencias significativas en seguridad, equidad o privacidad. Requiere remediación obligatoria previa al despliegue.
+- 🔴 **`CRITICAL` (Riesgo Crítico, Score $< 40.0$)**: Vulnerabilidades o fallos graves. **No apto para producción**.
+
+> 📖 **Para conocer la desglose detallado de las 11 dimensiones, pesos y fórmulas matemáticas de penalización, consulta:**  
+> 👉 [**README_CRITERIOS_SCORE.md**](file:///c:/Users/I13311/Desktop/Projects/auditmodels/README_CRITERIOS_SCORE.md)
+
+---
+
 ## 🛠️ Instalación y Requisitos
 
 Requiere **Python `>=3.12`** y la herramienta de gestión de paquetes [uv](https://github.com/astral-sh/uv).
