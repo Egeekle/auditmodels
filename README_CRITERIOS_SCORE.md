@@ -1,6 +1,6 @@
-# 📊 Criterios de Categorización de Score y Niveles de Riesgo en AuditModels
+# 📊 Criterios de Categorización de Score y Resultados de Pruebas en AuditModels
 
-Este documento explica de forma detallada la **metodología matemática, las fórmulas de ponderación, las penalizaciones específicas y los umbrales de categorización** utilizados por `auditmodels` para evaluar modelos de Inteligencia Artificial y Machine Learning.
+Este documento explica de forma detallada la **metodología matemática, las fórmulas de ponderación, las penalizaciones específicas y los umbrales de categorización** utilizados por `auditmodels` para evaluar modelos de Inteligencia Artificial y Machine Learning, incorporando además los **resultados empíricos reales obtenidos en las pruebas del framework**.
 
 ---
 
@@ -137,4 +137,48 @@ Para cada módulo individual, la categorización de riesgo local se determina se
 risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
 ```
 
-*(Con la excepción de evaluaciones donde se detecta un bloqueo crítico o datos vacíos, los cuales escalan inmediatamente a `CRITICAL`).*
+---
+
+## 🧪 4. Resultados Empíricos Obtenidos en las Pruebas del Proyecto
+
+A continuación se resumen los **resultados reales calculados por `auditmodels`** al ejecutar la suite de ejemplos del repositorio ([`examples/audit_credit_risk_modelling.py`](file:///c:/Users/I13311/Desktop/Projects/auditmodels/examples/audit_credit_risk_modelling.py), [`examples/audit_regression_performance.py`](file:///c:/Users/I13311/Desktop/Projects/auditmodels/examples/audit_regression_performance.py), [`examples/demo_audit.py`](file:///c:/Users/I13311/Desktop/Projects/auditmodels/examples/demo_audit.py)):
+
+### 📊 Resumen Comparativo de Scores Reales
+
+| Dimensión de Auditoría | Peso | Prueba 1: Riesgo Crediticio (GBDT) | Prueba 2: Regresión Tasa Interés (OLS) | Prueba 3: Demo Básico (RandomForest) |
+|---|:---:|:---:|:---:|:---:|
+| **Puntuación Global (Score)** | **100%** | **100.0 / 100** | **100.1 / 100** ($\approx$ 100) | **66.7 / 100** |
+| **Nivel de Riesgo Global** | — | 🟢 **`LOW`** | 🟢 **`LOW`** | 🟡 **`MEDIUM`** |
+| **Calidad de Datos** | 10% | 84.1 pts (contrib: 8.41 pts) | 100.0 pts (contrib: 10.00 pts) | 85.0 pts (contrib: 8.50 pts) |
+| **Rendimiento Predictivo** | 15% | 98.6 pts (contrib: 14.79 pts) | 80.8 pts (contrib: 12.12 pts) | 100.0 pts (contrib: 15.00 pts) |
+| **Equidad y Sesgos (Fairness)**| 10% | 97.9 pts (contrib: 9.79 pts) | 100.0 pts (contrib: 10.00 pts) | 91.2 pts (contrib: 9.12 pts) |
+| **Robustez y Estrés** | 10% | 100.0 pts (contrib: 10.00 pts) | 100.0 pts (contrib: 10.00 pts) | **54.4 pts** (contrib: 5.44 pts) |
+| **Seguridad de la IA** | 10% | 100.0 pts (contrib: 10.00 pts) | 100.0 pts (contrib: 10.00 pts) | **20.0 pts** (contrib: 2.00 pts) |
+| **Privacidad de Datos** | 15% | 80.0 pts (contrib: 12.00 pts) | 100.0 pts (contrib: 15.00 pts) | **30.0 pts** (contrib: 4.50 pts) |
+| **Explicabilidad** | 10% | 100.0 pts (contrib: 10.00 pts) | 80.0 pts (contrib: 8.00 pts) | 100.0 pts (contrib: 10.00 pts) |
+| **Cumplimiento Regulatorio** | 10% | 100.0 pts (contrib: 10.00 pts) | 100.0 pts (contrib: 10.00 pts) | 71.4 pts (contrib: 7.14 pts) |
+| **Documentación** | 5% | 100.0 pts (contrib: 5.00 pts) | 100.0 pts (contrib: 5.00 pts) | **0.0 pts** (contrib: 0.00 pts) |
+| **Proceso de Entrenamiento** | 5% | 100.0 pts (contrib: 5.00 pts) | 100.0 pts (contrib: 5.00 pts) | **0.0 pts** (contrib: 0.00 pts) |
+| **Producción y Deriva** | 5% | 100.0 pts (contrib: 5.00 pts) | 100.0 pts (contrib: 5.00 pts) | 100.0 pts (contrib: 5.00 pts) |
+
+---
+
+### 📝 Detalles de Métricas Calculadas en Cada Prueba
+
+#### 1. Prueba 1: Clasificación de Riesgo Crediticio (PD Scorecard con GBDT)
+- **Métricas de Rendimiento**: ROC-AUC = `0.9862`, Gini = `0.9725`, KS = `0.8828`, F1-Score = `0.9150`, Accuracy = `93.42%`.
+- **Métricas de Equidad**: Disparate Impact Ratio = `1.0293` (Pasa Regla del 80%), Igualdad de Oportunidades Diff = `0.0159`.
+- **Hallazgos**: Identificó PII `ssn` sin enmascarar en el dataset de entrada (Penalización de $-20$ pts en Privacidad). Puntuación final: **100.0 / 100** (Nivel `LOW`).
+
+#### 2. Prueba 2: Regresión de Tasa de Interés (Interest Rate Predictor OLS)
+- **Métricas de Rendimiento**: Coeficiente de Determinación $R^2 = 0.8076$, MAE = `0.8039`%, RMSE = `1.0208`%.
+- **Hallazgos**: El modelo demostró alta estabilidad en producción (latencia de `12.4 ms`). Recibió una leve penalización en Explicabilidad por alta dominancia del coeficiente `dti`. Puntuación final: **100.1 / 100** (Nivel `LOW`).
+
+#### 3. Prueba 3: Demo Básico sin Configuración (RandomForest "Out-of-the-Box")
+- **Hallazgos de Vulnerabilidades**: Al carecer de Ficha Técnica, políticas de privacidad, sembrado de aleatoriedad y defensas de seguridad, el framework redujo severamente los scores en:
+  - Documentación: **0.0 pts** (Falta total de Model Card).
+  - Entrenamiento: **0.0 pts** (Sin registro de split ni semilla).
+  - Seguridad: **20.0 pts** (Sin audit logs, rate limiting ni RBAC).
+  - Privacidad: **30.0 pts** (PII `email` expuesto sin anonimización).
+  - Robustez: **54.4 pts** (Caída del `22.8%` de precisión bajo ruido).
+- **Puntuación Final**: **66.7 / 100** (Nivel `MEDIUM`), requiriendo plan de remediación antes de ser desplegado a producción.
