@@ -4,22 +4,57 @@ import pandas as pd
 import numpy as np
 
 from auditmodels.auditor import ModelAuditor
+from auditmodels.agent import ModelTestingAgent
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AuditModels: Comprehensive AI Model Auditing CLI")
+    parser = argparse.ArgumentParser(description="AuditModels: Comprehensive AI Model Auditing & Agentic Testing CLI")
     parser.add_argument("--data", type=str, help="Path to CSV dataset to audit")
     parser.add_argument("--target", type=str, help="Target column name")
     parser.add_argument("--predictions", type=str, help="Path to CSV file containing y_true and y_pred")
     parser.add_argument("--model-name", type=str, default="AI Model", help="Name of the model being audited")
     parser.add_argument("--output-html", type=str, default="audit_report.html", help="Output path for HTML report")
     parser.add_argument("--output-md", type=str, default="audit_report.md", help="Output path for Markdown summary")
+    parser.add_argument("--use-agent", action="store_true", help="Use autonomous ModelTestingAgent for zero-config inspection & audit")
 
     args = parser.parse_args()
 
     print(f"Running AuditModels for [{args.model_name}]...")
 
-    if not args.data:
+    if args.use_agent:
+        print("[AGENT] Invoking ModelTestingAgent for autonomous model & dataset discovery...")
+        agent = ModelTestingAgent(agent_name=f"Agent for {args.model_name}")
+
+        if args.data:
+            df = pd.read_csv(args.data)
+        else:
+            print("No dataset provided; generating synthetic dataset for agentic audit...")
+            np.random.seed(42)
+            n_samples = 500
+            df = pd.DataFrame({
+                "age": np.random.randint(18, 70, n_samples),
+                "income": np.random.normal(50000, 15000, n_samples),
+                "gender": np.random.choice(["Male", "Female"], n_samples, p=[0.5, 0.5]),
+                "credit_score": np.random.normal(650, 50, n_samples),
+                "email": [f"user{i}@example.com" for i in range(n_samples)]
+            })
+            df["target"] = np.random.choice([0, 1], n_samples, p=[0.7, 0.3])
+
+        result, remediation = agent.run_tests(
+            df=df,
+            target_column=args.target,
+            model_name=args.model_name
+        )
+
+        print("\n[REMEDIATION PLAN] Generado por el Agente:")
+        for action in remediation.get("critical_actions", []):
+            print(f"  [CRITICAL] {action}")
+        for action in remediation.get("high_priority_actions", []):
+            print(f"  [HIGH] {action}")
+        for action in remediation.get("medium_priority_actions", []):
+            print(f"  [MEDIUM] {action}")
+
+    elif not args.data:
         print("Note: No dataset CSV provided. Run with --data path/to/dataset.csv or use the Python API.")
         print("Creating synthetic demo dataset audit...")
         
@@ -33,7 +68,6 @@ def main():
             "credit_score": np.random.normal(650, 50, n_samples)
         })
         y_true = np.random.choice([0, 1], n_samples, p=[0.7, 0.3])
-        # Add bias to predictions for female group to demonstrate audit warnings
         y_pred = y_true.copy()
         female_mask = df["gender"] == "Female"
         y_pred[female_mask] = np.random.choice([0, 1], female_mask.sum(), p=[0.8, 0.2])
@@ -58,7 +92,7 @@ def main():
                 print(f"Error: Target column '{args.target}' not found in dataset.")
                 sys.exit(1)
             y_true = df[args.target].values
-            y_pred = y_true  # dummy if no predictions file
+            y_pred = y_true
 
         auditor = ModelAuditor(model_name=args.model_name)
         result = auditor.audit(df=df, y_true=y_true, y_pred=y_pred, target_column=args.target)
@@ -66,7 +100,7 @@ def main():
     html_path = result.export_html(args.output_html)
     md_path = result.export_markdown(args.output_md)
 
-    print(f"Audit Complete! Overall Score: {result.overall_score}/100 | Risk Level: {result.overall_risk_level}")
+    print(f"\nAudit Complete! Overall Score: {result.overall_score:.1f}/100 | Risk Level: {result.overall_risk_level}")
     print(f"HTML Audit Report saved to: {html_path}")
     print(f"Markdown Summary saved to: {md_path}")
 

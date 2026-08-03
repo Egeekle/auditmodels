@@ -3,6 +3,7 @@ AuditModels: Framework y Dashboard de Auditoría Integral para Modelos de IA.
 """
 
 from auditmodels.auditor import ModelAuditor, AuditResult
+from auditmodels.agent import ModelTestingAgent
 from auditmodels.data_audit import audit_data
 from auditmodels.performance_audit import audit_performance
 from auditmodels.fairness_audit import audit_fairness
@@ -21,6 +22,7 @@ __version__ = "0.1.0"
 __all__ = [
     "ModelAuditor",
     "AuditResult",
+    "ModelTestingAgent",
     "audit_data",
     "audit_performance",
     "audit_fairness",
