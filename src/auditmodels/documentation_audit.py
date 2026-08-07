@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, List
 
+from auditmodels.errors import SECTION_STATUS_OK
+
 
 REQUIRED_DOCUMENTATION_FIELDS = {
     "objective": "Objetivo del modelo (qué problema resuelve y metas de negocio)",
@@ -43,6 +45,7 @@ def audit_documentation(doc_metadata: Optional[Dict[str, Any]] = None) -> Dict[s
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
         "passed_count": passed_count,
         "total_required": total_required,

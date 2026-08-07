@@ -1,6 +1,35 @@
 import json
+import logging
 from typing import Dict, Any, Optional
 import datetime
+
+from auditmodels.errors import ReportGenerationError
+
+logger = logging.getLogger(__name__)
+
+
+def _score_value(section: Dict[str, Any], default: Optional[float] = 100.0) -> Optional[float]:
+    """Numeric score of an audit phase, or `default` when the phase produced no evidence."""
+    score = section.get("score")
+    return float(score) if isinstance(score, (int, float)) else default
+
+
+def _score_label(section: Dict[str, Any]) -> str:
+    """Human readable score of an audit phase, flagging phases without evidence."""
+    score = section.get("score")
+    if isinstance(score, (int, float)):
+        return str(score)
+    return f"N/D ({section.get('status', 'SKIPPED')})"
+
+
+def _write_report(output_path: str, content: str) -> str:
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(content)
+    except OSError as e:
+        logger.exception("Could not write audit report to '%s'", output_path)
+        raise ReportGenerationError(f"Could not write audit report to '{output_path}': {e}") from e
+    return output_path
 
 
 def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit_report.html") -> str:
@@ -29,15 +58,15 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
 
     # Radar chart scores across all core dimensions
     scores = {
-        "Datos": data_res.get("score", 100),
-        "Rendimiento": perf_res.get("score", 100),
-        "Equidad": fair_res.get("score", 100),
-        "Robustez": rob_res.get("score", 100),
-        "Explicabilidad": exp_res.get("score", 100),
-        "Seguridad": sec_res.get("score", 100),
-        "Privacidad": priv_res.get("score", 100),
-        "Gobernanza": comp_res.get("score", 100),
-        "Producción": prod_res.get("score", 100),
+        "Datos": _score_value(data_res, None),
+        "Rendimiento": _score_value(perf_res, None),
+        "Equidad": _score_value(fair_res, None),
+        "Robustez": _score_value(rob_res, None),
+        "Explicabilidad": _score_value(exp_res, None),
+        "Seguridad": _score_value(sec_res, None),
+        "Privacidad": _score_value(priv_res, None),
+        "Gobernanza": _score_value(comp_res, None),
+        "Producción": _score_value(prod_res, None),
     }
 
     badge_colors = {
@@ -64,10 +93,10 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
     if abs(fair_res.get("equal_opportunity_diff", 0.0)) > 0.10 or not fair_res.get("passes_four_fifths_rule", True):
         recs.append("Mitigar el sesgo detectado en el modelo mediante re-ponderación de muestras (Reweighing) o post-procesamiento de umbral.")
         remediation_steps.append("Modelado/Fairness: Calibrar umbrales de decisión específicos por grupo para cumplir la regla del 80%.")
-    if rob_res.get("score", 100.0) < 80.0:
+    if _score_value(rob_res) < 80.0:
         recs.append("Aumentar la robustez del modelo contra ruidos de entrada y anomalías.")
         remediation_steps.append("Modelado: Implementar entrenamiento adversarial o inyección de ruido sintético en el dataset de entrenamiento.")
-    if not comp_res.get("framework_breakdown", {}).get("ISO/IEC 42001") or comp_res.get("score", 100.0) < 80.0:
+    if not comp_res.get("framework_breakdown", {}).get("ISO/IEC 42001") or _score_value(comp_res) < 80.0:
         recs.append("Establecer un marco formal de gobierno de IA con roles definidos.")
         remediation_steps.append("Cumplimiento: Redactar la política de gobernanza y control de acceso del modelo conforme a ISO 42001.")
 
@@ -209,47 +238,47 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
             <div class="metrics-grid">
                 <div class="metric-box">
                     <div class="label">Calidad de Datos</div>
-                    <div class="value">{data_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(data_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Rendimiento</div>
-                    <div class="value">{perf_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(perf_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Equidad y Sesgos</div>
-                    <div class="value">{fair_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(fair_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Robustez</div>
-                    <div class="value">{rob_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(rob_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Explicabilidad</div>
-                    <div class="value">{exp_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(exp_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Seguridad</div>
-                    <div class="value">{sec_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(sec_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Privacidad</div>
-                    <div class="value">{priv_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(priv_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Cumplimiento Normativo</div>
-                    <div class="value">{comp_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(comp_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Documentación</div>
-                    <div class="value">{doc_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(doc_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Entrenamiento</div>
-                    <div class="value">{train_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(train_res)} / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Producción y Deriva</div>
-                    <div class="value">{prod_res.get('score', 'N/A')} / 100</div>
+                    <div class="value">{_score_label(prod_res)} / 100</div>
                 </div>
             </div>
         </div>
@@ -461,10 +490,7 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
 </body>
 </html>
 """
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
-
-    return output_path
+    return _write_report(output_path, html_content)
 
 
 def generate_markdown_report(audit_result: Dict[str, Any], output_path: str = "audit_report.md") -> str:
@@ -505,7 +531,7 @@ def generate_markdown_report(audit_result: Dict[str, Any], output_path: str = "a
     if abs(fair_res.get("equal_opportunity_diff", 0.0)) > 0.10 or not fair_res.get("passes_four_fifths_rule", True):
         recs.append("Mitigar el sesgo detectado en el modelo mediante re-ponderación de muestras (Reweighing) o post-procesamiento de umbral.")
         remediation_steps.append("Modelado/Fairness: Calibrar umbrales de decisión específicos por grupo para cumplir la regla del 80%.")
-    if rob_res.get("score", 100.0) < 80.0:
+    if _score_value(rob_res) < 80.0:
         recs.append("Aumentar la robustez del modelo contra ruidos de entrada y anomalías.")
         remediation_steps.append("Modelado: Implementar entrenamiento adversarial o inyección de ruido sintético en el dataset de entrenamiento.")
 
@@ -534,17 +560,17 @@ def generate_markdown_report(audit_result: Dict[str, Any], output_path: str = "a
 
 | Fases Auditadas | Puntuación | Nivel de Riesgo |
 | :--- | :---: | :---: |
-| **1. Calidad de Datos** (`data_audit`) | {data_res.get('score', 'N/A')} / 100 | `{data_res.get('risk_level', 'N/A')}` |
-| **2. Rendimiento Predictivo** (`performance_audit`) | {perf_res.get('score', 'N/A')} / 100 | `{perf_res.get('risk_level', 'N/A')}` |
-| **3. Equidad y Sesgos** (`fairness_audit`) | {fair_res.get('score', 'N/A')} / 100 | `{fair_res.get('risk_level', 'N/A')}` |
-| **4. Robustez y Estrés** (`robustness_audit`) | {rob_res.get('score', 'N/A')} / 100 | `{rob_res.get('risk_level', 'N/A')}` |
-| **5. Explicabilidad** (`explainability_audit`) | {exp_res.get('score', 'N/A')} / 100 | `{exp_res.get('risk_level', 'N/A')}` |
-| **6. Seguridad** (`security_audit`) | {sec_res.get('score', 'N/A')} / 100 | `{sec_res.get('risk_level', 'N/A')}` |
-| **7. Privacidad** (`privacy_audit`) | {priv_res.get('score', 'N/A')} / 100 | `{priv_res.get('risk_level', 'N/A')}` |
-| **8. Cumplimiento y Gobernanza** (`compliance_audit`) | {comp_res.get('score', 'N/A')} / 100 | `{comp_res.get('risk_level', 'N/A')}` |
-| **9. Documentación** (`documentation_audit`) | {doc_res.get('score', 'N/A')} / 100 | `{doc_res.get('risk_level', 'N/A')}` |
-| **10. Entrenamiento** (`training_audit`) | {train_res.get('score', 'N/A')} / 100 | `{train_res.get('risk_level', 'N/A')}` |
-| **11. Producción y Deriva** (`production_audit`) | {prod_res.get('score', 'N/A')} / 100 | `{prod_res.get('risk_level', 'N/A')}` |
+| **1. Calidad de Datos** (`data_audit`) | {_score_label(data_res)} / 100 | `{data_res.get('risk_level', 'N/A')}` |
+| **2. Rendimiento Predictivo** (`performance_audit`) | {_score_label(perf_res)} / 100 | `{perf_res.get('risk_level', 'N/A')}` |
+| **3. Equidad y Sesgos** (`fairness_audit`) | {_score_label(fair_res)} / 100 | `{fair_res.get('risk_level', 'N/A')}` |
+| **4. Robustez y Estrés** (`robustness_audit`) | {_score_label(rob_res)} / 100 | `{rob_res.get('risk_level', 'N/A')}` |
+| **5. Explicabilidad** (`explainability_audit`) | {_score_label(exp_res)} / 100 | `{exp_res.get('risk_level', 'N/A')}` |
+| **6. Seguridad** (`security_audit`) | {_score_label(sec_res)} / 100 | `{sec_res.get('risk_level', 'N/A')}` |
+| **7. Privacidad** (`privacy_audit`) | {_score_label(priv_res)} / 100 | `{priv_res.get('risk_level', 'N/A')}` |
+| **8. Cumplimiento y Gobernanza** (`compliance_audit`) | {_score_label(comp_res)} / 100 | `{comp_res.get('risk_level', 'N/A')}` |
+| **9. Documentación** (`documentation_audit`) | {_score_label(doc_res)} / 100 | `{doc_res.get('risk_level', 'N/A')}` |
+| **10. Entrenamiento** (`training_audit`) | {_score_label(train_res)} / 100 | `{train_res.get('risk_level', 'N/A')}` |
+| **11. Producción y Deriva** (`production_audit`) | {_score_label(prod_res)} / 100 | `{prod_res.get('risk_level', 'N/A')}` |
 
 ---
 
@@ -574,7 +600,4 @@ def generate_markdown_report(audit_result: Dict[str, Any], output_path: str = "a
 ---
 *Generado automáticamente por AuditModels Framework v0.1.0*
 """
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(md_content)
-
-    return output_path
+    return _write_report(output_path, md_content)

@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, List
 
+from auditmodels.errors import SECTION_STATUS_OK
+
 
 def audit_training(
     training_config: Optional[Dict[str, Any]] = None
@@ -71,6 +73,7 @@ def audit_training(
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
         "split_ratios": split_ratios,
         "is_stratified": is_stratified,
