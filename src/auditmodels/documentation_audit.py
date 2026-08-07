@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, List
 
+from auditmodels.common import classify_risk_level
+
 
 REQUIRED_DOCUMENTATION_FIELDS = {
     "objective": "Objetivo del modelo (qué problema resuelve y metas de negocio)",
@@ -39,7 +41,7 @@ def audit_documentation(doc_metadata: Optional[Dict[str, Any]] = None) -> Dict[s
     passed_count = len(present_fields)
     score = round((passed_count / total_required) * 100, 1)
 
-    risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
+    risk_level = classify_risk_level(score)
 
     return {
         "score": score,

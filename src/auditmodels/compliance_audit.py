@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, List
 
+from auditmodels.common import classify_risk_level
+
 
 DEFAULT_COMPLIANCE_CHECKLIST = [
     {
@@ -90,7 +92,7 @@ def audit_compliance(
         })
 
     score = round((passed_items / total_items) * 100, 1) if total_items > 0 else 100.0
-    risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
+    risk_level = classify_risk_level(score)
 
     return {
         "score": score,

@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, List
 
+from auditmodels.common import classify_risk_level, normalize_score
+
 
 def audit_privacy(
     privacy_config: Optional[Dict[str, Any]] = None,
@@ -46,8 +48,8 @@ def audit_privacy(
     if not has_anonymization and flagged_pii_cols: score -= 20
     if not retention_policy_defined: score -= 15
 
-    score = max(0.0, round(score, 1))
-    risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
+    score = normalize_score(score)
+    risk_level = classify_risk_level(score)
 
     return {
         "score": score,

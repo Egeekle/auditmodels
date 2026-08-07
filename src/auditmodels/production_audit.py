@@ -2,6 +2,8 @@ from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
 
+from auditmodels.common import classify_risk_level, normalize_score
+
 
 def calculate_psi(reference: np.ndarray, current: np.ndarray, num_buckets: int = 10) -> float:
     """
@@ -96,8 +98,8 @@ def audit_production(
     if error_rate and error_rate > 1.0: score -= 15
     if user_feedback_score and user_feedback_score < 80.0: score -= 10
 
-    score = max(0.0, round(score, 1))
-    risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
+    score = normalize_score(score)
+    risk_level = classify_risk_level(score)
 
     return {
         "score": score,

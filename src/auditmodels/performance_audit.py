@@ -12,6 +12,8 @@ from sklearn.metrics import (
     r2_score,
 )
 
+from auditmodels.common import classify_risk_level
+
 
 def audit_performance(
     y_true: Union[list, np.ndarray],
@@ -83,7 +85,7 @@ def audit_performance(
             warnings.append(f"Low KS statistic for credit risk modelling ({ks_stat:.3f} < 0.30 threshold)")
 
         score = round((auc * 100 if auc is not None else f1 * 100), 1)
-        risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
+        risk_level = classify_risk_level(score)
 
         return {
             "problem_type": "classification",
@@ -113,7 +115,7 @@ def audit_performance(
 
         # Score based on R2 mapped to 0-100
         score = max(0.0, min(100.0, round(r2 * 100, 1)))
-        risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
+        risk_level = classify_risk_level(score)
 
         return {
             "problem_type": "regression",

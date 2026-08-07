@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional
 
+from auditmodels.common import classify_risk_level, normalize_score
+
 
 def audit_security(
     security_config: Optional[Dict[str, Any]] = None,
@@ -64,8 +66,8 @@ def audit_security(
     if not has_access_control: score -= 15
     if not has_audit_logs: score -= 15
 
-    score = max(0.0, round(score, 1))
-    risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
+    score = normalize_score(score)
+    risk_level = classify_risk_level(score)
 
     return {
         "score": score,

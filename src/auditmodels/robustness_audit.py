@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, mean_squared_error
 
+from auditmodels.common import classify_risk_level, normalize_score
+
 
 def audit_robustness(
     predict_fn: Callable[[np.ndarray], np.ndarray],
@@ -97,8 +99,8 @@ def audit_robustness(
         warnings.append(f"High sensitivity to input noise detected (max performance drop: {max_drop:.1f}%)")
 
     # Score calculation (100 = perfectly robust, no degradation)
-    robustness_score = max(0.0, round(100.0 - max_drop * 2, 1))
-    risk_level = "LOW" if robustness_score >= 80 else ("MEDIUM" if robustness_score >= 60 else "HIGH")
+    robustness_score = normalize_score(100.0 - max_drop * 2)
+    risk_level = classify_risk_level(robustness_score)
 
     return {
         "score": robustness_score,
