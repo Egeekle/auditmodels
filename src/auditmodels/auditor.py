@@ -15,6 +15,7 @@ from auditmodels.production_audit import audit_production
 from auditmodels.security_audit import audit_security
 from auditmodels.privacy_audit import audit_privacy
 from auditmodels.reporting import generate_html_report, generate_markdown_report
+from auditmodels.common import classify_overall_risk_level
 
 
 class AuditResult:
@@ -187,14 +188,7 @@ class ModelAuditor:
         overall_score = sum(sections[sec].get("score", 0) * weight for sec, weight in weights.items())
         overall_score = round(overall_score, 1)
 
-        if overall_score >= 80:
-            overall_risk_level = "LOW"
-        elif overall_score >= 60:
-            overall_risk_level = "MEDIUM"
-        elif overall_score >= 40:
-            overall_risk_level = "HIGH"
-        else:
-            overall_risk_level = "CRITICAL"
+        overall_risk_level = classify_overall_risk_level(overall_score)
 
         full_audit_data = {
             "overall_score": overall_score,

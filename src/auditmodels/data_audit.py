@@ -3,6 +3,8 @@ from typing import Dict, Any, Optional, List
 import pandas as pd
 import numpy as np
 
+from auditmodels.common import classify_risk_level, normalize_score
+
 
 def audit_data(
     df: pd.DataFrame,
@@ -76,13 +78,9 @@ def audit_data(
         score -= 15
     if imbalance_ratio > 5.0:
         score -= 15
-    score = max(round(score, 1), 0.0)
+    score = normalize_score(score)
 
-    risk_level = "LOW"
-    if score < 60:
-        risk_level = "HIGH"
-    elif score < 80:
-        risk_level = "MEDIUM"
+    risk_level = classify_risk_level(score)
 
     return {
         "score": score,

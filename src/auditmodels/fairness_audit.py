@@ -2,6 +2,8 @@ from typing import Dict, Any, Union, Optional
 import numpy as np
 import pandas as pd
 
+from auditmodels.common import classify_risk_level, normalize_score, RISK_CRITICAL
+
 
 def audit_fairness(
     df: pd.DataFrame,
@@ -41,7 +43,7 @@ def audit_fairness(
     if priv_mask.sum() == 0 or unpriv_mask.sum() == 0:
         return {
             "score": 0.0,
-            "risk_level": "CRITICAL",
+            "risk_level": RISK_CRITICAL,
             "warnings": [f"Sensitive group mask empty for '{sensitive_column}'. Privileged count: {priv_mask.sum()}, Unprivileged count: {unpriv_mask.sum()}"]
         }
 
@@ -92,9 +94,9 @@ def audit_fairness(
     # Score calculation (100 = perfect equity)
     di_penalty = min(abs(1.0 - disparate_impact) * 50, 40)
     eq_opp_penalty = abs(equal_opportunity_diff) * 40
-    score = max(0.0, round(100.0 - di_penalty - eq_opp_penalty, 1))
+    score = normalize_score(100.0 - di_penalty - eq_opp_penalty)
 
-    risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
+    risk_level = classify_risk_level(score)
 
     return {
         "score": score,

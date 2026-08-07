@@ -2,6 +2,8 @@ import json
 from typing import Dict, Any, Optional
 import datetime
 
+from auditmodels.common import build_recommendations
+
 
 def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit_report.html") -> str:
     """
@@ -52,28 +54,7 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
     warnings_html = "".join([f"<li class='warning-item'>⚠️ {w}</li>" for w in warnings_list]) if warnings_list else "<p class='no-warnings'>✅ Sin alertas críticas identificadas en el modelo.</p>"
 
     # 13. Actionable Recommendations & Remediation Plan logic
-    recs = []
-    remediation_steps = []
-    
-    if data_res.get("duplicate_rows", 0) > 0:
-        recs.append("Limpiar duplicados y registros inconsistentes en los pipelines de ETL.")
-        remediation_steps.append("ETL/Data Prep: Agregar deduplicación estricta y llaves primarias únicas.")
-    if priv_res.get("pii_detected"):
-        recs.append(f"Cifrar/Enmascarar columnas PII detectadas: {priv_res.get('pii_detected')}.")
-        remediation_steps.append("Seguridad/Privacidad: Implementar hashing SHA-256 o tokenización en variables de identificación personal.")
-    if abs(fair_res.get("equal_opportunity_diff", 0.0)) > 0.10 or not fair_res.get("passes_four_fifths_rule", True):
-        recs.append("Mitigar el sesgo detectado en el modelo mediante re-ponderación de muestras (Reweighing) o post-procesamiento de umbral.")
-        remediation_steps.append("Modelado/Fairness: Calibrar umbrales de decisión específicos por grupo para cumplir la regla del 80%.")
-    if rob_res.get("score", 100.0) < 80.0:
-        recs.append("Aumentar la robustez del modelo contra ruidos de entrada y anomalías.")
-        remediation_steps.append("Modelado: Implementar entrenamiento adversarial o inyección de ruido sintético en el dataset de entrenamiento.")
-    if not comp_res.get("framework_breakdown", {}).get("ISO/IEC 42001") or comp_res.get("score", 100.0) < 80.0:
-        recs.append("Establecer un marco formal de gobierno de IA con roles definidos.")
-        remediation_steps.append("Cumplimiento: Redactar la política de gobernanza y control de acceso del modelo conforme a ISO 42001.")
-
-    if not recs:
-        recs.append("Mantener el monitoreo continuo establecido de deriva y rendimiento predictivo.")
-        remediation_steps.append("Operaciones/MLOps: Ejecutar re-evaluaciones automáticas de drift mensualmente.")
+    recs, remediation_steps = build_recommendations(sections)
 
     recs_html = "".join([f"<li>📌 {r}</li>" for r in recs])
     remediation_html = "".join([f"<li>🛠️ {step}</li>" for step in remediation_steps])
@@ -493,25 +474,7 @@ def generate_markdown_report(audit_result: Dict[str, Any], output_path: str = "a
     warnings_md = "".join([f"- ⚠️ {w}\n" for w in warnings_list]) if warnings_list else "✅ Sin alertas críticas identificadas.\n"
 
     # Actionable Recommendations & Remediation Plan logic
-    recs = []
-    remediation_steps = []
-    
-    if data_res.get("duplicate_rows", 0) > 0:
-        recs.append("Limpiar duplicados y registros inconsistentes en los pipelines de ETL.")
-        remediation_steps.append("ETL/Data Prep: Agregar deduplicación estricta y llaves primarias únicas.")
-    if priv_res.get("pii_detected"):
-        recs.append(f"Cifrar/Enmascarar columnas PII detectadas: {priv_res.get('pii_detected')}.")
-        remediation_steps.append("Seguridad/Privacidad: Implementar hashing SHA-256 o tokenización en variables de identificación personal.")
-    if abs(fair_res.get("equal_opportunity_diff", 0.0)) > 0.10 or not fair_res.get("passes_four_fifths_rule", True):
-        recs.append("Mitigar el sesgo detectado en el modelo mediante re-ponderación de muestras (Reweighing) o post-procesamiento de umbral.")
-        remediation_steps.append("Modelado/Fairness: Calibrar umbrales de decisión específicos por grupo para cumplir la regla del 80%.")
-    if rob_res.get("score", 100.0) < 80.0:
-        recs.append("Aumentar la robustez del modelo contra ruidos de entrada y anomalías.")
-        remediation_steps.append("Modelado: Implementar entrenamiento adversarial o inyección de ruido sintético en el dataset de entrenamiento.")
-
-    if not recs:
-        recs.append("Mantener el monitoreo continuo establecido de deriva y rendimiento predictivo.")
-        remediation_steps.append("MLOps: Ejecutar re-evaluaciones automáticas de drift mensualmente.")
+    recs, remediation_steps = build_recommendations(sections)
 
     recs_md = "".join([f"- 📌 {r}\n" for r in recs])
     remediation_md = "".join([f"- 🛠️ {step}\n" for step in remediation_steps])
