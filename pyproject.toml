@@ -17,6 +17,11 @@ dependencies = [
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.uv]
+# gitpython < 3.1.57 (pulled in transitively by streamlit) is affected by
+# GHSA-3f7w-8rr8-f37f, GHSA-539m-9xh6-q6rr and GHSA-p538-c434-8v24.
+constraint-dependencies = ["gitpython>=3.1.57"]
+
 [dependency-groups]
 dev = [
     "ipykernel>=7.3.0",

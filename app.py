@@ -1,3 +1,6 @@
+import html
+import os
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -17,6 +20,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Evidence upload restrictions
+ALLOWED_EVIDENCE_EXTENSIONS = ["pdf", "csv", "xlsx", "docx", "json", "txt", "md", "png", "jpg", "jpeg"]
+MAX_EVIDENCE_SIZE_BYTES = 25 * 1024 * 1024
 
 # ---------------------------------------------------------
 # CUSTOM STYLING & DESIGN SYSTEM
@@ -410,14 +417,15 @@ def get_risk_badge(level):
         return '<span class="badge-critical">🔴 Riesgo Crítico</span>'
 
 def get_status_badge(status):
+    label = html.escape(str(status))
     if status in ["Aprobada", "Confirmado", "Completado", "Finalizada"]:
-        return '<span class="badge-low">✅ ' + status + '</span>'
+        return '<span class="badge-low">✅ ' + label + '</span>'
     elif status in ["En revisión", "En progreso", "Evidencias"]:
-        return '<span class="badge-medium">⏳ ' + status + '</span>'
+        return '<span class="badge-medium">⏳ ' + label + '</span>'
     elif status in ["Observada", "Pendiente"]:
-        return '<span class="badge-high">⚠️ ' + status + '</span>'
+        return '<span class="badge-high">⚠️ ' + label + '</span>'
     else:
-        return '<span class="badge-critical">🔴 ' + status + '</span>'
+        return '<span class="badge-critical">🔴 ' + label + '</span>'
 
 def create_risk_gauge(score, title="Puntaje de Riesgo General"):
     fig = go.Figure(go.Indicator(
@@ -775,11 +783,21 @@ elif current_role == "🏢 Empresa Cliente":
                     else:
                         st.warning("⚠️ Sin archivo adjunto")
                 with col_e2:
-                    uploaded_f = st.file_uploader(f"Subir evidencia para {ev['code']}:", key=f"up_{ev['code']}")
+                    uploaded_f = st.file_uploader(
+                        f"Subir evidencia para {ev['code']}:",
+                        key=f"up_{ev['code']}",
+                        type=ALLOWED_EVIDENCE_EXTENSIONS,
+                    )
                     if uploaded_f:
-                        ev["file"] = uploaded_f.name
-                        ev["status"] = "Cargada"
-                        st.success(f"Archivo '{uploaded_f.name}' cargado con éxito.")
+                        if uploaded_f.size > MAX_EVIDENCE_SIZE_BYTES:
+                            st.error(
+                                f"El archivo excede el tamaño máximo permitido de {MAX_EVIDENCE_SIZE_BYTES // (1024 * 1024)} MB."
+                            )
+                        else:
+                            safe_name = os.path.basename(uploaded_f.name)
+                            ev["file"] = safe_name
+                            ev["status"] = "Cargada"
+                            st.success(f"Archivo '{safe_name}' cargado con éxito.")
 
     # Consultas al Agente IA
     elif nav_option == "💬 Consultas al Agente IA":
@@ -881,7 +899,7 @@ else:
             st.markdown(f"""
             <div class="agent-quote-box">
                 <b>📌 Cita Textual de la Evidencia Analizada:</b><br>
-                <i>"{curr_ev['quote']}"</i>
+                <i>"{html.escape(str(curr_ev['quote']))}"</i>
             </div>
             """, unsafe_allow_html=True)
 

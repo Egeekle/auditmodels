@@ -27,6 +27,9 @@ def main():
 
         if args.data:
             df = pd.read_csv(args.data)
+            if args.target and args.target not in df.columns:
+                print(f"Error: Target column '{args.target}' not found in dataset.")
+                sys.exit(1)
         else:
             print("No dataset provided; generating synthetic dataset for agentic audit...")
             np.random.seed(42)
@@ -85,6 +88,10 @@ def main():
         df = pd.read_csv(args.data)
         if args.predictions:
             preds_df = pd.read_csv(args.predictions)
+            missing_cols = [col for col in ("y_true", "y_pred") if col not in preds_df.columns]
+            if missing_cols:
+                print(f"Error: Predictions CSV is missing required columns: {', '.join(missing_cols)}")
+                sys.exit(1)
             y_true = preds_df["y_true"]
             y_pred = preds_df["y_pred"]
         else:

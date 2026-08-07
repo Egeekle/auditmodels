@@ -1,6 +1,12 @@
+import html
 import json
 from typing import Dict, Any, Optional
 import datetime
+
+
+def _esc(value: Any) -> str:
+    """Escapes a value for safe interpolation into HTML text or attributes."""
+    return html.escape(str(value), quote=True)
 
 
 def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit_report.html") -> str:
@@ -11,8 +17,9 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
     overall_score = audit_result.get("overall_score", 0.0)
     risk_level = audit_result.get("overall_risk_level", "MEDIUM")
     meta = audit_result.get("metadata", {})
-    model_name = meta.get("model_name", "AI Model")
-    audit_date = meta.get("timestamp", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    model_name = _esc(meta.get("model_name", "AI Model"))
+    audit_date = _esc(meta.get("timestamp", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    risk_level_label = _esc(risk_level)
 
     sections = audit_result.get("sections", {})
     data_res = sections.get("data", {})
@@ -49,7 +56,7 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
     status_bg = badge_colors.get(risk_level, "#6b7280")
 
     warnings_list = audit_result.get("all_warnings", [])
-    warnings_html = "".join([f"<li class='warning-item'>⚠️ {w}</li>" for w in warnings_list]) if warnings_list else "<p class='no-warnings'>✅ Sin alertas críticas identificadas en el modelo.</p>"
+    warnings_html = "".join([f"<li class='warning-item'>⚠️ {_esc(w)}</li>" for w in warnings_list]) if warnings_list else "<p class='no-warnings'>✅ Sin alertas críticas identificadas en el modelo.</p>"
 
     # 13. Actionable Recommendations & Remediation Plan logic
     recs = []
@@ -75,13 +82,13 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
         recs.append("Mantener el monitoreo continuo establecido de deriva y rendimiento predictivo.")
         remediation_steps.append("Operaciones/MLOps: Ejecutar re-evaluaciones automáticas de drift mensualmente.")
 
-    recs_html = "".join([f"<li>📌 {r}</li>" for r in recs])
-    remediation_html = "".join([f"<li>🛠️ {step}</li>" for step in remediation_steps])
+    recs_html = "".join([f"<li>📌 {_esc(r)}</li>" for r in recs])
+    remediation_html = "".join([f"<li>🛠️ {_esc(step)}</li>" for step in remediation_steps])
 
     # Feature Importance rows
     fi_dict = exp_res.get("feature_importances", {})
     fi_rows = "".join([
-        f"<tr><td>{feat}</td><td>{val}</td><td>{'⭐⭐⭐ Alta' if i < 2 else '⭐⭐ Media'}</td></tr>"
+        f"<tr><td>{_esc(feat)}</td><td>{_esc(val)}</td><td>{'⭐⭐⭐ Alta' if i < 2 else '⭐⭐ Media'}</td></tr>"
         for i, (feat, val) in enumerate(list(fi_dict.items())[:5])
     ]) if fi_dict else "<tr><td colspan='3'>Sin datos de importancia de características disponibles</td></tr>"
 
@@ -170,7 +177,7 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
                 <h1>Auditoría de Modelo de IA</h1>
                 <p>Modelo: <strong>{model_name}</strong> | Fecha: {audit_date}</p>
             </div>
-            <div class="overall-badge">RIESGO: {risk_level}</div>
+            <div class="overall-badge">RIESGO: {risk_level_label}</div>
         </header>
 
         <div class="grid-dashboard">
@@ -341,7 +348,7 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
                 <tbody>
                     <tr>
                         <td>Riesgo de Extracción de Modelo (Rate Limiting)</td>
-                        <td>{sec_res.get('extraction_risk', 'LOW')} RISK</td>
+                        <td>{_esc(sec_res.get('extraction_risk', 'LOW'))} RISK</td>
                         <td><span class="status-pass">MONITORED</span></td>
                     </tr>
                     <tr>
@@ -351,7 +358,7 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
                     </tr>
                     <tr>
                         <td>Control de Acceso (RBAC) y Registros de Auditoría (Logs)</td>
-                        <td>{sec_res.get('access_control', 'ENABLED')} / {sec_res.get('audit_logs', 'ENABLED')}</td>
+                        <td>{_esc(sec_res.get('access_control', 'ENABLED'))} / {_esc(sec_res.get('audit_logs', 'ENABLED'))}</td>
                         <td><span class="status-pass">PASSED</span></td>
                     </tr>
                     <tr>
@@ -410,7 +417,7 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
                 </thead>
                 <tbody>
                     {"".join([
-                        f"<tr><td>{item['id']}</td><td>{item['framework']}</td><td>{item['question']}</td><td><span class='{'status-pass' if item['status']=='PASSED' else 'status-fail'}'>{item['status']}</span></td></tr>"
+                        f"<tr><td>{_esc(item.get('id', ''))}</td><td>{_esc(item.get('framework', ''))}</td><td>{_esc(item.get('question', ''))}</td><td><span class='{'status-pass' if item.get('status') == 'PASSED' else 'status-fail'}'>{_esc(item.get('status', ''))}</span></td></tr>"
                         for item in comp_res.get('checklist', [])
                     ])}
                 </tbody>
@@ -453,7 +460,7 @@ def generate_html_report(audit_result: Dict[str, Any], output_path: str = "audit
         }});
 
         // Hide Credit Risk Card if not classification problem
-        if ("{perf_res.get('problem_type')}" !== "classification") {{
+        if ({json.dumps(str(perf_res.get('problem_type')))} !== "classification") {{
             const card = document.getElementById("credit-risk-metrics-card");
             if (card) card.style.display = "none";
         }}
