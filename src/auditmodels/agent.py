@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 
 from auditmodels.auditor import ModelAuditor, AuditResult
+from auditmodels.errors import AuditConfigurationError, AuditExecutionError
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,7 @@ class ModelTestingAgent:
         privileged_group: Optional[Any] = None,
         unprivileged_group: Optional[Any] = None,
         model_name: str = "AI Model",
+        strict: bool = False,
         predict_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
         compliance_answers: Optional[Dict[str, bool]] = None,
         doc_metadata: Optional[Dict[str, Any]] = None,
@@ -138,6 +140,10 @@ class ModelTestingAgent:
     ) -> Tuple[AuditResult, Dict[str, Any]]:
         """
         Executes zero-configuration autonomous testing suite on model and dataset.
+
+        Raises:
+            AuditExecutionError: If a supplied model cannot produce predictions.
+            AuditConfigurationError: If strict=True and the dataset provides no ground truth.
         """
         # Step 1: Perform inspection
         setup_info = self.inspect_and_setup(
@@ -164,11 +170,17 @@ class ModelTestingAgent:
             y_true_final = df[target_col].values
 
         feature_cols = [c for c in df.columns if c != target_col and c != sens_col]
+        model_features = [str(c) for c in np.atleast_1d(getattr(model, "feature_names_in_", []))]
+        if model_features and all(col in df.columns for col in model_features):
+            # Honour the exact feature set the model was fitted on instead of guessing
+            feature_cols = model_features
         X = df[feature_cols] if feature_cols else df
 
         y_pred_final = y_pred
         y_prob_final = y_prob
         pred_fn_final = predict_fn
+
+        setup_warnings: List[str] = []
 
         if model is not None:
             if pred_fn_final is None and hasattr(model, "predict"):
@@ -177,7 +189,11 @@ class ModelTestingAgent:
                 try:
                     y_pred_final = model.predict(X)
                 except Exception as e:
-                    logger.warning(f"Auto-predict failed: {e}")
+                    logger.exception("Auto-predict failed for the supplied model")
+                    raise AuditExecutionError(
+                        f"The supplied model could not predict on the audited features {list(X.columns)}: {e}. "
+                        "Pass y_pred explicitly or a predict_fn that accepts this dataset."
+                    ) from e
 
             if y_prob_final is None and hasattr(model, "predict_proba") and prob_type == "classification":
                 try:
@@ -185,13 +201,35 @@ class ModelTestingAgent:
                     if probs.ndim == 2 and probs.shape[1] >= 2:
                         y_prob_final = probs[:, 1]
                 except Exception as e:
-                    logger.warning(f"Auto-predict_proba failed: {e}")
+                    # Probabilities are optional: degrade the performance metrics but surface why.
+                    logger.warning("Auto-predict_proba failed: %s", e, exc_info=True)
+                    setup_warnings.append(
+                        f"Probabilidades no disponibles (predict_proba falló: {e}). "
+                        "Las métricas ROC-AUC / Gini / KS no se calcularán."
+                    )
 
-        # Fallbacks if y_true / y_pred are still missing
+        # Missing ground truth or predictions are reported as skipped phases rather than
+        # silently substituted with placeholder arrays that would fake a perfect model.
         if y_true_final is None:
-            y_true_final = np.ones(len(df))
-        if y_pred_final is None:
-            y_pred_final = y_true_final
+            message = (
+                "No se encontró la variable objetivo (y_true) ni una columna target reconocible: "
+                "las fases de rendimiento, equidad y robustez no pueden evaluarse."
+            )
+            if strict:
+                raise AuditConfigurationError(message)
+            logger.warning(message)
+            setup_warnings.append(message)
+        elif y_pred_final is None:
+            message = (
+                "No se suministraron predicciones (y_pred) ni un modelo capaz de generarlas: "
+                "las fases de rendimiento y equidad no pueden evaluarse."
+            )
+            if strict:
+                raise AuditConfigurationError(message)
+            logger.warning(message)
+            setup_warnings.append(message)
+
+        setup_info["warnings"] = setup_warnings
 
         # Step 3: Instantiate ModelAuditor and run audit
         auditor = ModelAuditor(model_name=model_name)
@@ -207,13 +245,16 @@ class ModelTestingAgent:
             unprivileged_group=unread_grp,
             model=model,
             predict_fn=pred_fn_final,
+            feature_columns=feature_cols,
             compliance_answers=compliance_answers,
             doc_metadata=doc_metadata,
             training_config=training_config,
             production_df=production_df,
             security_answers=security_answers,
-            privacy_answers=privacy_answers
+            privacy_answers=privacy_answers,
+            strict=strict
         )
+        result.all_warnings[:0] = setup_warnings
 
         # Step 4: Generate Actionable Remediation Plan
         remediation = self.generate_remediation_plan(result, setup_info)
@@ -230,8 +271,12 @@ class ModelTestingAgent:
         """
         score = audit_result.overall_score
         risk_level = audit_result.overall_risk_level
-        warnings = audit_result.all_warnings
         sections = audit_result.sections
+
+        def section_score(name: str, default: float = 100.0) -> float:
+            """Score of a phase, falling back to `default` when the phase produced no evidence."""
+            value = sections.get(name, {}).get("score")
+            return float(value) if isinstance(value, (int, float)) else default
 
         plan = {
             "overall_score": score,
@@ -242,28 +287,35 @@ class ModelTestingAgent:
             "summary_recommendations": []
         }
 
+        # Phases that failed outright must be re-run before the audit can be trusted
+        for failure in audit_result.errors:
+            plan["critical_actions"].append(
+                f"[AUDITORÍA] La fase '{failure['section']}' falló ({failure['error_type']}: {failure['error']}). "
+                "Corregir la entrada o el modelo y repetir la auditoría: esta dimensión no tiene evidencia."
+            )
+
         # Analyze Documentation
-        doc_score = sections.get("documentation", {}).get("score", 100)
+        doc_score = section_score("documentation")
         if doc_score < 50:
             plan["critical_actions"].append(
                 "[DOCUMENTACIÓN] Crear la Ficha Técnica (Model Card) registrando objetivo, casos de uso, algoritmo y responsables."
             )
 
         # Analyze Training
-        train_score = sections.get("training", {}).get("score", 100)
+        train_score = section_score("training")
         if train_score < 50:
             plan["critical_actions"].append(
                 "[ENTRENAMIENTO] Registrar la semilla aleatoria (random seed), hiperparámetros y división train/val/test para garantizar reproducibilidad."
             )
 
         # Analyze Security & Privacy
-        sec_score = sections.get("security", {}).get("score", 100)
+        sec_score = section_score("security")
         if sec_score < 60:
             plan["high_priority_actions"].append(
                 "[SEGURIDAD] Configurar control de acceso (RBAC), rate-limiting y registros de auditoría (audit logs) en el endpoint del modelo."
             )
 
-        priv_score = sections.get("privacy", {}).get("score", 100)
+        priv_score = section_score("privacy")
         pii_cols = setup_info.get("auto_detected", {}).get("pii_columns", [])
         if priv_score < 80 or pii_cols:
             cols_str = ", ".join(pii_cols) if pii_cols else "detectadas"
@@ -272,14 +324,14 @@ class ModelTestingAgent:
             )
 
         # Analyze Robustness
-        rob_score = sections.get("robustness", {}).get("score", 100)
+        rob_score = section_score("robustness")
         if rob_score < 70:
             plan["medium_priority_actions"].append(
                 "[ROBUSTEZ] Aplicar entrenamiento adversarial o aumento de datos con ruido sintético para reducir la sensibilidad del modelo a perturbaciones."
             )
 
         # Analyze Fairness
-        fair_score = sections.get("fairness", {}).get("score", 100)
+        fair_score = section_score("fairness")
         if fair_score < 80:
             plan["medium_priority_actions"].append(
                 "[EQUIDAD] Calibrar el umbral de decisión o aplicar técnicas de re-ponderación (Reweighing) para mitigar el sesgo demográfico."
@@ -292,5 +344,11 @@ class ModelTestingAgent:
             f"Acciones de Alta Prioridad: {len(plan['high_priority_actions'])}",
             f"Acciones de Prioridad Media: {len(plan['medium_priority_actions'])}"
         ]
+
+        unscored = audit_result.raw_data.get("unscored_sections", [])
+        if unscored:
+            plan["summary_recommendations"].append(
+                f"Fases sin evidencia (excluidas de la puntuación): {', '.join(unscored)}."
+            )
 
         return plan

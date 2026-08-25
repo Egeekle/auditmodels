@@ -1,7 +1,16 @@
 import datetime
+import logging
 from typing import Dict, Any, Optional, List, Union, Callable
 import pandas as pd
 import numpy as np
+
+from auditmodels.errors import (
+    SECTION_STATUS_ERROR,
+    AuditExecutionError,
+    AuditModelsError,
+    errored_section,
+    skipped_section,
+)
 
 from auditmodels.data_audit import audit_data
 from auditmodels.performance_audit import audit_performance
@@ -16,6 +25,8 @@ from auditmodels.security_audit import audit_security
 from auditmodels.privacy_audit import audit_privacy
 from auditmodels.reporting import generate_html_report, generate_markdown_report
 
+logger = logging.getLogger(__name__)
+
 
 class AuditResult:
     """
@@ -27,6 +38,15 @@ class AuditResult:
         self.overall_risk_level = data.get("overall_risk_level", "UNKNOWN")
         self.all_warnings = data.get("all_warnings", [])
         self.sections = data.get("sections", {})
+        self.errors = data.get("errors", [])
+
+    @property
+    def has_errors(self) -> bool:
+        """True when at least one audit phase failed and was excluded from the overall score."""
+        return bool(self.errors)
+
+    def failed_sections(self) -> List[str]:
+        return [name for name, section in self.sections.items() if section.get("status") == SECTION_STATUS_ERROR]
 
     def to_dict(self) -> Dict[str, Any]:
         return self.raw_data
@@ -48,8 +68,8 @@ class ModelAuditor:
     def audit(
         self,
         df: pd.DataFrame,
-        y_true: Union[list, np.ndarray],
-        y_pred: Union[list, np.ndarray],
+        y_true: Optional[Union[list, np.ndarray]] = None,
+        y_pred: Optional[Union[list, np.ndarray]] = None,
         y_prob: Optional[Union[list, np.ndarray]] = None,
         problem_type: str = "classification",
         target_column: Optional[str] = None,
@@ -67,108 +87,171 @@ class ModelAuditor:
         privacy_answers: Optional[Dict[str, Any]] = None,
         error_rate: Optional[float] = None,
         concept_drift_detected: bool = False,
-        user_feedback_score: Optional[float] = None
+        user_feedback_score: Optional[float] = None,
+        feature_columns: Optional[List[str]] = None,
+        strict: bool = False
     ) -> AuditResult:
         """
         Executes a comprehensive audit across Data, Performance, Fairness, Robustness, Governance,
         Documentation, Training Process, Explainability, Production Drift, Security, and Privacy.
+
+        Phases that cannot run (missing inputs) or that fail are recorded with a null score and a
+        SKIPPED / ERROR status, and are excluded from the weighted overall score instead of being
+        credited with a perfect one. Set strict=True to propagate any phase failure to the caller.
         """
-        all_warnings = []
-        sections = {}
+        all_warnings: List[str] = []
+        sections: Dict[str, Dict[str, Any]] = {}
+        errors: List[Dict[str, str]] = []
+
+        def register(name: str, section: Dict[str, Any]) -> Dict[str, Any]:
+            sections[name] = section
+            all_warnings.extend(section.get("warnings", []))
+            return section
+
+        def run_section(name: str, audit_callable: Callable[..., Dict[str, Any]], **kwargs) -> Dict[str, Any]:
+            try:
+                return register(name, audit_callable(**kwargs))
+            except Exception as e:
+                logger.exception("Audit phase '%s' failed", name)
+                if strict:
+                    if isinstance(e, AuditModelsError):
+                        raise
+                    raise AuditExecutionError(f"Audit phase '{name}' failed: {e}") from e
+                errors.append({"section": name, "error_type": type(e).__name__, "error": str(e)})
+                return register(name, errored_section(f"Auditoría de '{name}' no completada: {e}", e))
 
         # 1. Data Audit (Steps 3 & 10)
-        data_res = audit_data(df, target_column=target_column, sensitive_columns=[sensitive_column] if sensitive_column else None)
-        sections["data"] = data_res
-        all_warnings.extend(data_res.get("warnings", []))
+        data_res = run_section(
+            "data",
+            audit_data,
+            df=df,
+            target_column=target_column,
+            sensitive_columns=[sensitive_column] if sensitive_column else None,
+        )
 
         # 2. Performance Audit (Step 5)
-        perf_res = audit_performance(y_true=y_true, y_pred=y_pred, y_prob=y_prob, problem_type=problem_type)
-        sections["performance"] = perf_res
-        all_warnings.extend(perf_res.get("warnings", []))
+        if y_true is None or y_pred is None:
+            register("performance", skipped_section(
+                "Performance audit skipped: ground truth (y_true) and/or predictions (y_pred) not supplied."
+            ))
+        else:
+            run_section(
+                "performance",
+                audit_performance,
+                y_true=y_true,
+                y_pred=y_pred,
+                y_prob=y_prob,
+                problem_type=problem_type,
+            )
 
         # 3. Fairness Audit (Step 6)
-        if sensitive_column and sensitive_column in df.columns and privileged_group is not None and unprivileged_group is not None:
-            fair_res = audit_fairness(
+        if y_true is None or y_pred is None:
+            register("fairness", skipped_section(
+                "Fairness audit skipped: ground truth (y_true) and/or predictions (y_pred) not supplied."
+            ))
+        elif not (sensitive_column and sensitive_column in df.columns):
+            register("fairness", skipped_section(
+                "Fairness audit skipped: sensitive column not supplied or absent from the dataset."
+            ))
+        elif privileged_group is None or unprivileged_group is None:
+            register("fairness", skipped_section(
+                "Fairness audit skipped: privileged / unprivileged group parameters not supplied."
+            ))
+        else:
+            run_section(
+                "fairness",
+                audit_fairness,
                 df=df,
                 y_true=y_true,
                 y_pred=y_pred,
                 sensitive_column=sensitive_column,
                 privileged_group=privileged_group,
-                unprivileged_group=unprivileged_group
+                unprivileged_group=unprivileged_group,
             )
-            sections["fairness"] = fair_res
-            all_warnings.extend(fair_res.get("warnings", []))
-        else:
-            sections["fairness"] = {
-                "score": 100.0,
-                "risk_level": "LOW",
-                "warnings": ["Fairness audit skipped: sensitive column or group parameters not supplied."]
-            }
+
+        # Features the model actually consumes: target and sensitive attributes are excluded so
+        # that stress tests and importances are not computed on columns the model never saw.
+        feature_cols = feature_columns or [c for c in df.columns if c not in (target_column, sensitive_column)]
+        feature_df = df[feature_cols] if feature_cols else df
 
         # 4. Robustness Audit (Step 7)
-        if predict_fn is not None:
-            rob_res = audit_robustness(predict_fn=predict_fn, X_val=df, y_val=y_true, problem_type=problem_type)
-            sections["robustness"] = rob_res
-            all_warnings.extend(rob_res.get("warnings", []))
+        if predict_fn is None:
+            rob_res = register("robustness", skipped_section(
+                "Robustness stress test skipped: predict_fn not supplied."
+            ))
+        elif y_true is None:
+            rob_res = register("robustness", skipped_section(
+                "Robustness stress test skipped: ground truth (y_true) not supplied."
+            ))
         else:
-            rob_res = {
-                "score": 100.0,
-                "risk_level": "LOW",
-                "warnings": ["Robustness stress test skipped: predict_fn not supplied."]
-            }
-            sections["robustness"] = rob_res
+            rob_res = run_section(
+                "robustness",
+                audit_robustness,
+                predict_fn=predict_fn,
+                X_val=feature_df,
+                y_val=y_true,
+                problem_type=problem_type,
+            )
 
         # 5. Explainability Audit (Step 8)
-        if model is not None:
-            feature_cols = [c for c in df.columns if c != target_column and c != sensitive_column]
-            exp_res = audit_explainability(model=model, feature_names=feature_cols, X_sample=df)
-            sections["explainability"] = exp_res
-            all_warnings.extend(exp_res.get("warnings", []))
+        if model is None:
+            register("explainability", skipped_section(
+                "Explainability audit skipped: trained model instance not provided."
+            ))
         else:
-            sections["explainability"] = {
-                "score": 100.0,
-                "risk_level": "LOW",
-                "warnings": ["Explainability audit skipped: trained model instance not provided."]
-            }
+            run_section(
+                "explainability",
+                audit_explainability,
+                model=model,
+                feature_names=feature_cols,
+                X_sample=feature_df,
+            )
 
         # 6. Compliance Audit (Steps 9 & 11)
-        comp_res = audit_compliance(answers=compliance_answers)
-        sections["compliance"] = comp_res
-        all_warnings.extend(comp_res.get("warnings", []))
+        run_section("compliance", audit_compliance, answers=compliance_answers)
 
         # 7. Documentation Audit (Step 2)
-        doc_res = audit_documentation(doc_metadata=doc_metadata)
-        sections["documentation"] = doc_res
-        all_warnings.extend(doc_res.get("warnings", []))
+        run_section("documentation", audit_documentation, doc_metadata=doc_metadata)
 
         # 8. Training Process Audit (Step 4)
         if training_config:
             training_config["problem_type"] = problem_type
-        train_res = audit_training(training_config=training_config)
-        sections["training"] = train_res
-        all_warnings.extend(train_res.get("warnings", []))
+        run_section("training", audit_training, training_config=training_config)
 
         # 9. Production & Drift Audit (Step 12)
-        prod_res = audit_production(
+        run_section(
+            "production",
+            audit_production,
             reference_df=df,
             production_df=production_df,
             latency_ms=latency_ms,
             error_rate=error_rate,
             concept_drift_detected=concept_drift_detected,
-            user_feedback_score=user_feedback_score
+            user_feedback_score=user_feedback_score,
         )
-        sections["production"] = prod_res
-        all_warnings.extend(prod_res.get("warnings", []))
 
         # 10. Security Audit (Step 9)
-        sec_res = audit_security(security_config=security_answers, robustness_score=rob_res.get("score", 100.0))
-        sections["security"] = sec_res
-        all_warnings.extend(sec_res.get("warnings", []))
+        robustness_score = rob_res.get("score")
+        if robustness_score is None:
+            # Robustness evidence is missing: assume the neutral 100 baseline but say so.
+            robustness_score = 100.0
+            all_warnings.append(
+                "Seguridad: La evaluación de manipulación de entradas asume robustez nominal porque la fase de robustez no produjo evidencia."
+            )
+        sec_res = run_section(
+            "security",
+            audit_security,
+            security_config=security_answers,
+            robustness_score=robustness_score,
+        )
 
         # 11. Privacy Audit (Step 10)
-        priv_res = audit_privacy(privacy_config=privacy_answers, flagged_pii_cols=data_res.get("pii_flagged", []))
-        sections["privacy"] = priv_res
-        all_warnings.extend(priv_res.get("warnings", []))
+        run_section(
+            "privacy",
+            audit_privacy,
+            privacy_config=privacy_answers,
+            flagged_pii_cols=data_res.get("pii_flagged", []),
+        )
 
         # Overall Weighted Score Calculation
         weights = {
@@ -184,10 +267,30 @@ class ModelAuditor:
             "training": 0.05,
             "production": 0.05,
         }
-        overall_score = sum(sections[sec].get("score", 0) * weight for sec, weight in weights.items())
-        overall_score = round(overall_score, 1)
+        scored = {
+            sec: (sections[sec]["score"], weight)
+            for sec, weight in weights.items()
+            if isinstance(sections.get(sec, {}).get("score"), (int, float))
+        }
+        unscored_sections = [sec for sec in weights if sec not in scored]
+        total_weight = sum(weight for _, weight in scored.values())
 
-        if overall_score >= 80:
+        if total_weight > 0:
+            # Renormalize over the phases that produced evidence so that skipped or failed
+            # phases neither inflate nor deflate the overall score.
+            overall_score = round(sum(score * weight for score, weight in scored.values()) / total_weight, 1)
+        else:
+            overall_score = 0.0
+
+        if unscored_sections:
+            all_warnings.append(
+                f"Puntuación global calculada sobre {len(scored)} de {len(weights)} fases: "
+                f"sin evidencia para {unscored_sections}."
+            )
+
+        if total_weight == 0:
+            overall_risk_level = "UNKNOWN"
+        elif overall_score >= 80:
             overall_risk_level = "LOW"
         elif overall_score >= 60:
             overall_risk_level = "MEDIUM"
@@ -205,6 +308,9 @@ class ModelAuditor:
             },
             "all_warnings": all_warnings,
             "sections": sections,
+            "errors": errors,
+            "unscored_sections": unscored_sections,
+            "evaluated_weight": round(total_weight, 4),
         }
 
         return AuditResult(full_audit_data)

@@ -2,6 +2,8 @@ from typing import Dict, Any, Optional, List, Union
 import numpy as np
 import pandas as pd
 
+from auditmodels.errors import SECTION_STATUS_OK
+
 
 def audit_explainability(
     model: Any,
@@ -60,6 +62,7 @@ def audit_explainability(
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
         "feature_importances": importances,
         "top_features": list(importances.keys())[:5] if importances else [],

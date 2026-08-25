@@ -1,7 +1,18 @@
+import logging
 from typing import Dict, Any, Callable, List
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, mean_squared_error
+
+from auditmodels.errors import (
+    SECTION_STATUS_OK,
+    AuditConfigurationError,
+    AuditExecutionError,
+    errored_section,
+    skipped_section,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def audit_robustness(
@@ -24,16 +35,15 @@ def audit_robustness(
     Returns:
         Dict containing robustness degradation scores, risk level, and warnings.
     """
+    if problem_type not in ("classification", "regression"):
+        raise AuditConfigurationError(f"Unsupported problem_type: {problem_type}")
+
     y_val = np.array(y_val)
     warnings = []
     numeric_df = X_val.select_dtypes(include=[np.number])
 
     if numeric_df.empty:
-        return {
-            "score": 100.0,
-            "risk_level": "LOW",
-            "warnings": ["No numeric features available to apply noise perturbation stress tests."]
-        }
+        return skipped_section("No numeric features available to apply noise perturbation stress tests.")
 
     # Impute missing values for numeric features during perturbation tests if needed
     cleaned_df = numeric_df.fillna(numeric_df.median())
@@ -43,19 +53,22 @@ def audit_robustness(
     def safe_predict(input_data):
         try:
             return predict_fn(input_data)
-        except Exception:
-            # Fallback to DataFrame if model requires feature names
+        except Exception as matrix_error:
+            # Fallback to DataFrame if the model requires feature names
+            logger.debug("predict_fn rejected a NumPy matrix, retrying with a DataFrame", exc_info=True)
             df_input = pd.DataFrame(input_data, columns=feature_names)
-            return predict_fn(df_input)
+            try:
+                return predict_fn(df_input)
+            except Exception as frame_error:
+                raise AuditExecutionError(
+                    f"predict_fn failed on both NumPy matrix ({matrix_error}) and DataFrame input ({frame_error})"
+                ) from frame_error
 
     try:
         baseline_pred = safe_predict(X_mat)
-    except Exception as e:
-        return {
-            "score": 100.0,
-            "risk_level": "LOW",
-            "warnings": [f"Robustness test skipped: predict_fn failed on validation dataset ({str(e)})"]
-        }
+    except AuditExecutionError as e:
+        logger.exception("Robustness baseline prediction failed")
+        return errored_section(f"Robustness test could not run: {e}", e)
 
     if problem_type == "classification":
         baseline_metric = float(accuracy_score(y_val, baseline_pred))
@@ -63,6 +76,7 @@ def audit_robustness(
         baseline_metric = float(mean_squared_error(y_val, baseline_pred))
 
     noise_results = []
+    failed_scales = []
     max_drop = 0.0
 
     for scale in noise_scales:
@@ -91,7 +105,22 @@ def audit_robustness(
                 "metric_change_pct": round(pct_drop, 2)
             })
         except Exception as e:
+            logger.exception("Perturbation test failed at noise scale %s", scale)
+            failed_scales.append(scale)
             warnings.append(f"Failed perturbation test at noise scale {scale}: {str(e)}")
+
+    if failed_scales and not noise_results:
+        section = errored_section(
+            f"Robustness test could not run: every perturbation test failed (noise scales {failed_scales})."
+        )
+        section["warnings"].extend(warnings)
+        return section
+
+    if failed_scales:
+        warnings.append(
+            f"Robustness score computed on partial evidence: {len(failed_scales)} of "
+            f"{len(noise_scales)} perturbation tests failed."
+        )
 
     if max_drop > 20:
         warnings.append(f"High sensitivity to input noise detected (max performance drop: {max_drop:.1f}%)")
@@ -102,7 +131,9 @@ def audit_robustness(
 
     return {
         "score": robustness_score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
+        "failed_noise_scales": failed_scales,
         "baseline_metric": round(baseline_metric, 4),
         "noise_perturbation_tests": noise_results,
         "max_performance_drop_pct": round(max_drop, 2),

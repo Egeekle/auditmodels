@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Any, Optional, Union
 import numpy as np
 from sklearn.metrics import (
@@ -11,6 +12,10 @@ from sklearn.metrics import (
     mean_squared_error,
     r2_score,
 )
+
+from auditmodels.errors import SECTION_STATUS_OK, AuditConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 def audit_performance(
@@ -33,8 +38,18 @@ def audit_performance(
     Returns:
         Dict containing performance metrics, score (0-100), risk level, and warnings.
     """
+    if problem_type not in ("classification", "regression"):
+        raise AuditConfigurationError(f"Unsupported problem_type: {problem_type}")
+
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
+    if len(y_true) != len(y_pred):
+        raise AuditConfigurationError(
+            f"y_true and y_pred length mismatch: {len(y_true)} vs {len(y_pred)}"
+        )
+    if len(y_true) == 0:
+        raise AuditConfigurationError("Cannot audit performance on empty y_true / y_pred arrays")
+
     warnings = []
 
     if problem_type == "classification":
@@ -67,6 +82,7 @@ def audit_performance(
                     fpr, tpr, thresholds = roc_curve(y_true, y_prob)
                     ks_stat = float(np.max(tpr - fpr))
             except Exception as e:
+                logger.exception("Could not compute ROC-AUC / Gini / KS")
                 warnings.append(f"Could not compute ROC-AUC / Gini / KS: {str(e)}")
 
         cm = confusion_matrix(y_true, y_pred).tolist()
@@ -82,12 +98,20 @@ def audit_performance(
         if ks_stat is not None and ks_stat < 0.30:
             warnings.append(f"Low KS statistic for credit risk modelling ({ks_stat:.3f} < 0.30 threshold)")
 
-        score = round((auc * 100 if auc is not None else f1 * 100), 1)
+        if auc is None:
+            score = round(f1 * 100, 1)
+            warnings.append(
+                "Performance score derived from F1-Score: ROC-AUC unavailable (no probabilities supplied or AUC computation failed)."
+            )
+        else:
+            score = round(auc * 100, 1)
         risk_level = "LOW" if score >= 80 else ("MEDIUM" if score >= 60 else "HIGH")
 
         return {
             "problem_type": "classification",
             "score": score,
+            "status": SECTION_STATUS_OK,
+            "score_basis": "f1_score" if auc is None else "roc_auc",
             "risk_level": risk_level,
             "accuracy": round(acc, 4),
             "precision": round(prec, 4),
@@ -100,7 +124,7 @@ def audit_performance(
             "warnings": warnings,
         }
 
-    elif problem_type == "regression":
+    else:
         mae = float(mean_absolute_error(y_true, y_pred))
         mse = float(mean_squared_error(y_true, y_pred))
         rmse = float(np.sqrt(mse))
@@ -118,6 +142,7 @@ def audit_performance(
         return {
             "problem_type": "regression",
             "score": score,
+            "status": SECTION_STATUS_OK,
             "risk_level": risk_level,
             "mae": round(mae, 4),
             "mse": round(mse, 4),
@@ -125,5 +150,3 @@ def audit_performance(
             "r2_score": round(r2, 4),
             "warnings": warnings,
         }
-    else:
-        raise ValueError(f"Unsupported problem_type: {problem_type}")

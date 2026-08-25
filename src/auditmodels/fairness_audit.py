@@ -2,6 +2,8 @@ from typing import Dict, Any, Union, Optional
 import numpy as np
 import pandas as pd
 
+from auditmodels.errors import SECTION_STATUS_OK, AuditConfigurationError
+
 
 def audit_fairness(
     df: pd.DataFrame,
@@ -29,8 +31,16 @@ def audit_fairness(
     Returns:
         Dict containing fairness metrics, equity score (0-100), risk level, and warnings.
     """
+    if sensitive_column not in df.columns:
+        raise AuditConfigurationError(f"Sensitive column '{sensitive_column}' not present in the dataset")
+
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
+    if not (len(y_true) == len(y_pred) == len(df)):
+        raise AuditConfigurationError(
+            f"Length mismatch between df ({len(df)}), y_true ({len(y_true)}) and y_pred ({len(y_pred)})"
+        )
+
     sensitive_attr = df[sensitive_column].values
 
     priv_mask = (sensitive_attr == privileged_group)
@@ -39,11 +49,11 @@ def audit_fairness(
     warnings = []
 
     if priv_mask.sum() == 0 or unpriv_mask.sum() == 0:
-        return {
-            "score": 0.0,
-            "risk_level": "CRITICAL",
-            "warnings": [f"Sensitive group mask empty for '{sensitive_column}'. Privileged count: {priv_mask.sum()}, Unprivileged count: {unpriv_mask.sum()}"]
-        }
+        raise AuditConfigurationError(
+            f"No rows match the configured groups for '{sensitive_column}'. "
+            f"Privileged '{privileged_group}' count: {priv_mask.sum()}, "
+            f"unprivileged '{unprivileged_group}' count: {unpriv_mask.sum()}."
+        )
 
     # Selection rates (P(y_pred = pos_label))
     rate_priv = float(np.mean(y_pred[priv_mask] == pos_label))
@@ -98,6 +108,7 @@ def audit_fairness(
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
         "sensitive_column": sensitive_column,
         "privileged_group": str(privileged_group),

@@ -3,6 +3,8 @@ from typing import Dict, Any, Optional, List
 import pandas as pd
 import numpy as np
 
+from auditmodels.errors import SECTION_STATUS_OK
+
 
 def audit_data(
     df: pd.DataFrame,
@@ -86,6 +88,7 @@ def audit_data(
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
         "total_rows": total_rows,
         "total_cols": total_cols,
