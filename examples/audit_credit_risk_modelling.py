@@ -137,8 +137,8 @@ def audit_credit_risk_modelling():
     )
 
     # 3. Export Reports
-    html_path = audit_result.export_html("credit_risk_modelling_audit_report.html")
-    md_path = audit_result.export_markdown("credit_risk_modelling_audit_report.md")
+    html_path = audit_result.export_html("resolution/credit_risk_modelling_audit_report.html")
+    md_path = audit_result.export_markdown("resolution/credit_risk_modelling_audit_report.md")
 
     print("\n=======================================================")
     print("AUDIT RESULTS FOR CREDIT RISK MODELLING")

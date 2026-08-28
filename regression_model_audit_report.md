@@ -1,8 +1,8 @@
 # 🛡️ Informe de Auditoría de IA - Loan Interest Rate Predictor
 
-**Puntuación General:** 95.8 / 100  
+**Puntuación General:** 90.3 / 100  
 **Nivel de Riesgo AuditModels:** `LOW`  
-**Fecha:** 2026-07-22 15:32:33  
+**Fecha:** 2026-08-28 16:19:54  
 
 ---
 
@@ -18,7 +18,7 @@
 | :--- | :---: | :---: |
 | **1. Calidad de Datos** (`data_audit`) | 100.0 / 100 | `LOW` |
 | **2. Rendimiento Predictivo** (`performance_audit`) | 66.4 / 100 | `MEDIUM` |
-| **3. Equidad y Sesgos** (`fairness_audit`) | 100.0 / 100 | `LOW` |
+| **3. Equidad y Sesgos** (`fairness_audit`) | N/D (SKIPPED) / 100 | `UNKNOWN` |
 | **4. Robustez y Estrés** (`robustness_audit`) | 78.2 / 100 | `MEDIUM` |
 | **5. Explicabilidad** (`explainability_audit`) | 80.0 / 100 | `LOW` |
 | **6. Seguridad** (`security_audit`) | 100.0 / 100 | `LOW` |
@@ -31,7 +31,9 @@
 ---
 
 ## ⚠️ Evidencias y Riesgos Identificados (Alertas)
+- ⚠️ Fairness audit skipped: sensitive column not supplied or absent from the dataset.
 - ⚠️ Alta dominancia de una sola característica 'credit_score' (99.5% de importancia). Riesgo de sesgo por característica única.
+- ⚠️ Puntuación global calculada sobre 10 de 11 fases: sin evidencia para ['fairness'].
 
 ---
 

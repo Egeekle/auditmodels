@@ -101,8 +101,8 @@ def audit_regression_model():
     )
 
     # 3. Export Reports
-    html_path = audit_result.export_html("regression_model_audit_report.html")
-    md_path = audit_result.export_markdown("regression_model_audit_report.md")
+    html_path = audit_result.export_html("resolution/regression_model_audit_report.html")
+    md_path = audit_result.export_markdown("resolution/regression_model_audit_report.md")
 
     print("\n=======================================================")
     print("REGRESSION MODEL AUDIT RESULTS")

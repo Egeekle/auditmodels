@@ -48,7 +48,7 @@
         .score-hero { display: flex; align-items: center; justify-content: space-around; height: 260px; }
         .circle-score {
             width: 140px; height: 140px; border-radius: 50%;
-            background: conic-gradient(var(--accent) 344.88deg, rgba(255,255,255,0.1) 0deg);
+            background: conic-gradient(var(--accent) 325.08deg, rgba(255,255,255,0.1) 0deg);
             display: flex; align-items: center; justify-content: center;
             position: relative; box-shadow: 0 0 20px var(--accent-glow);
         }
@@ -81,17 +81,17 @@
         <header>
             <div class="brand">
                 <h1>Auditoría de Modelo de IA</h1>
-                <p>Modelo: <strong>Loan Interest Rate Predictor</strong> | Fecha: 2026-07-22 15:32:33</p>
+                <p>Modelo: <strong>Loan Interest Rate Predictor</strong> | Fecha: 2026-08-28 16:19:54</p>
             </div>
             <div class="overall-badge">RIESGO: LOW</div>
         </header>
 
         <div class="grid-dashboard">
             <div class="card">
-                <h2>🎯 Puntuación General (95.8/100)</h2>
+                <h2>🎯 Puntuación General (90.3/100)</h2>
                 <div class="score-hero">
                     <div class="circle-score">
-                        <span>95.8</span>
+                        <span>90.3</span>
                     </div>
                     <div style="width: 240px; height: 240px;">
                         <canvas id="radarChart"></canvas>
@@ -102,7 +102,7 @@
             <div class="card">
                 <h2>⚠️ Alertas y Hallazgos Principales</h2>
                 <ul class="warnings-list">
-                    <li class='warning-item'>⚠️ Alta dominancia de una sola característica 'credit_score' (99.5% de importancia). Riesgo de sesgo por característica única.</li>
+                    <li class='warning-item'>⚠️ Fairness audit skipped: sensitive column not supplied or absent from the dataset.</li><li class='warning-item'>⚠️ Alta dominancia de una sola característica 'credit_score' (99.5% de importancia). Riesgo de sesgo por característica única.</li><li class='warning-item'>⚠️ Puntuación global calculada sobre 10 de 11 fases: sin evidencia para ['fairness'].</li>
                 </ul>
             </div>
         </div>
@@ -130,7 +130,7 @@
                 </div>
                 <div class="metric-box">
                     <div class="label">Equidad y Sesgos</div>
-                    <div class="value">100.0 / 100</div>
+                    <div class="value">N/D (SKIPPED) / 100</div>
                 </div>
                 <div class="metric-box">
                     <div class="label">Robustez</div>
@@ -328,7 +328,7 @@
         </div>
 
         <footer>
-            Generado automáticamente por <strong>AuditModels Framework v0.1.0</strong> | 2026-07-22 15:32:33
+            Generado automáticamente por <strong>AuditModels Framework v0.1.0</strong> | 2026-08-28 16:19:54
         </footer>
     </div>
 
@@ -340,7 +340,7 @@
                 labels: ["Datos", "Rendimiento", "Equidad", "Robustez", "Explicabilidad", "Seguridad", "Privacidad", "Gobernanza", "Producci\u00f3n"],
                 datasets: [{
                     label: 'Puntuación AuditModels',
-                    data: [100.0, 66.4, 100.0, 78.2, 80.0, 100.0, 100.0, 100.0, 100.0],
+                    data: [100.0, 66.4, null, 78.2, 80.0, 100.0, 100.0, 100.0, 100.0],
                     backgroundColor: 'rgba(56, 189, 248, 0.2)',
                     borderColor: '#38bdf8',
                     pointBackgroundColor: '#38bdf8',

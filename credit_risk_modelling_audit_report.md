@@ -1,8 +1,8 @@
 # 🛡️ Informe de Auditoría de IA - Credit Risk Modelling (PD Scorecard)
 
-**Puntuación General:** 85.7 / 100  
+**Puntuación General:** 81.6 / 100  
 **Nivel de Riesgo AuditModels:** `LOW`  
-**Fecha:** 2026-07-22 15:32:27  
+**Fecha:** 2026-08-28 16:19:12  
 
 ---
 
