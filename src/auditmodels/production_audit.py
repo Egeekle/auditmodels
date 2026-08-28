@@ -1,6 +1,11 @@
+import logging
 from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
+
+from auditmodels.errors import SECTION_STATUS_OK, AuditConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_psi(reference: np.ndarray, current: np.ndarray, num_buckets: int = 10) -> float:
@@ -9,12 +14,24 @@ def calculate_psi(reference: np.ndarray, current: np.ndarray, num_buckets: int =
     PSI < 0.1: No significant shift
     0.1 <= PSI < 0.25: Moderate shift / warning
     PSI >= 0.25: Significant shift / action required
+
+    Raises:
+        AuditConfigurationError: If either sample is non-numeric or holds no usable values,
+            since no drift verdict can be derived from it.
     """
+    try:
+        reference = np.asarray(reference, dtype=float)
+        current = np.asarray(current, dtype=float)
+    except (TypeError, ValueError) as e:
+        raise AuditConfigurationError(f"PSI requires numeric samples: {e}") from e
+
     reference = reference[~np.isnan(reference)]
     current = current[~np.isnan(current)]
-    
+
     if len(reference) == 0 or len(current) == 0:
-        return 0.0
+        raise AuditConfigurationError(
+            f"PSI needs non-empty samples (reference={len(reference)}, current={len(current)})"
+        )
 
     percentiles = np.linspace(0, 100, num_buckets + 1)
     buckets = np.percentile(reference, percentiles)
@@ -60,21 +77,41 @@ def audit_production(
     """
     warnings = []
     drift_by_column = {}
+    not_evaluated_columns = []
 
     if production_df is not None:
         numeric_cols = reference_df.select_dtypes(include=[np.number]).columns
         for col in numeric_cols:
-            if col in production_df.columns:
-                ref_vals = reference_df[col].values
-                prod_vals = production_df[col].values
-                psi = calculate_psi(ref_vals, prod_vals)
-                drift_status = "STABLE" if psi < 0.1 else ("MODERATE_DRIFT" if psi < 0.25 else "SEVERE_DRIFT")
+            if col not in production_df.columns:
+                not_evaluated_columns.append(col)
                 drift_by_column[col] = {
-                    "psi": round(psi, 4),
-                    "status": drift_status
+                    "psi": None,
+                    "status": "NOT_EVALUATED",
+                    "error": "Column absent from the production dataset",
                 }
-                if drift_status == "SEVERE_DRIFT":
-                    warnings.append(f"Deriva de Datos (Data Drift): Deriva severa detectada en la característica '{col}' (PSI={psi:.3f}).")
+                continue
+
+            try:
+                psi = calculate_psi(reference_df[col].values, production_df[col].values)
+            except AuditConfigurationError as e:
+                logger.warning("PSI could not be computed for column '%s': %s", col, e)
+                not_evaluated_columns.append(col)
+                drift_by_column[col] = {"psi": None, "status": "NOT_EVALUATED", "error": str(e)}
+                continue
+
+            drift_status = "STABLE" if psi < 0.1 else ("MODERATE_DRIFT" if psi < 0.25 else "SEVERE_DRIFT")
+            drift_by_column[col] = {
+                "psi": round(psi, 4),
+                "status": drift_status
+            }
+            if drift_status == "SEVERE_DRIFT":
+                warnings.append(f"Deriva de Datos (Data Drift): Deriva severa detectada en la característica '{col}' (PSI={psi:.3f}).")
+
+    if not_evaluated_columns:
+        warnings.append(
+            f"Deriva de Datos: {len(not_evaluated_columns)} columnas numéricas no pudieron evaluarse "
+            f"(ausentes o sin datos válidos en producción): {not_evaluated_columns}."
+        )
 
     if concept_drift_detected:
         warnings.append("Deriva de Concepto (Concept Drift): Se ha detectado una degradación estadística en el rendimiento del modelo en producción.")
@@ -101,7 +138,9 @@ def audit_production(
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
+        "not_evaluated_columns": not_evaluated_columns,
         "drift_by_column": drift_by_column,
         "severe_drift_columns": [k for k, v in drift_by_column.items() if v["status"] == "SEVERE_DRIFT"],
         "concept_drift_detected": concept_drift_detected,

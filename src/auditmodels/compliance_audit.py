@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, List
 
+from auditmodels.errors import SECTION_STATUS_OK
+
 
 DEFAULT_COMPLIANCE_CHECKLIST = [
     {
@@ -94,6 +96,7 @@ def audit_compliance(
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
         "passed_count": passed_items,
         "total_count": total_items,

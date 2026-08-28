@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional
 
+from auditmodels.errors import SECTION_STATUS_OK
+
 
 def audit_security(
     security_config: Optional[Dict[str, Any]] = None,
@@ -69,6 +71,7 @@ def audit_security(
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
         "extraction_risk": "HIGH" if not has_rate_limiting else "LOW",
         "inversion_risk": "HIGH" if not has_membership_defense else "LOW",

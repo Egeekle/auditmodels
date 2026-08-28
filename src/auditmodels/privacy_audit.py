@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional, List
 
+from auditmodels.errors import SECTION_STATUS_OK
+
 
 def audit_privacy(
     privacy_config: Optional[Dict[str, Any]] = None,
@@ -51,6 +53,7 @@ def audit_privacy(
 
     return {
         "score": score,
+        "status": SECTION_STATUS_OK,
         "risk_level": risk_level,
         "pii_detected": flagged_pii_cols,
         "memorization_risk_mitigated": memorization_risk_checked,
